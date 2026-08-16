@@ -18,7 +18,23 @@ h1,h2,h3{font-family:'Manrope',sans-serif;letter-spacing:-.03em}.brand{display:f
 .risk-low{color:var(--green)}.risk-review{color:var(--amber)}.risk-high{color:var(--red)}
 .stButton>button{border-radius:8px;font-weight:600;border:1px solid var(--ink);min-height:2.5rem}.stButton>button[kind="primary"]{background:var(--green);border-color:var(--green)}
 .stTextInput input,.stTextArea textarea,.stSelectbox [data-baseweb="select"]{background:#fffefa;border-color:var(--line)}
-@media(max-width:850px){.block-container{padding:1rem}.hero{grid-template-columns:1fr}.project-meta{text-align:left}.rail{grid-template-columns:repeat(2,1fr)}.hero h1{font-size:1.8rem}}
+@media(max-width:900px){
+ .block-container{padding:1rem 1rem 3rem;max-width:100%}
+ .hero{grid-template-columns:1fr;gap:.7rem}.project-meta{text-align:left}
+ .rail{grid-template-columns:repeat(4,minmax(0,1fr))}
+ [data-testid="stHorizontalBlock"]{flex-direction:column!important;gap:.75rem!important}
+ [data-testid="column"]{width:100%!important;flex:1 1 100%!important;min-width:0!important}
+ .hero h1{font-size:clamp(1.75rem,7vw,2.15rem);max-width:100%}
+ .hero p{font-size:.92rem}.brand{align-items:flex-start;gap:.65rem}.mode{white-space:nowrap}
+}
+@media(max-width:560px){
+ .block-container{padding:.75rem .7rem 2.5rem}
+ .brand{flex-direction:column}.rail{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .stage{min-height:58px;padding:.62rem .55rem}.hero{margin:.75rem 0 1rem}
+ .hero h1{font-size:1.72rem}.project-meta{display:none}
+ [data-testid="stVerticalBlockBorderWrapper"]{border-radius:9px!important}
+ .stButton>button{width:100%}
+}
 </style>""", unsafe_allow_html=True)
 
 defaults = {"stage": 0, "niche": "AI productivity", "audience": "solo creators with limited time", "goal": "Build trust with a useful weekly video", "topics": [], "topic": "", "proposals": [], "winner": 0, "script": "", "research": [], "research_ok": False, "script_ok": False, "personal": True, "title": "", "handoff": ""}
