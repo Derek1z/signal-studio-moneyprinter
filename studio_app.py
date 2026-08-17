@@ -26,7 +26,6 @@ from studio.engine import (
     replace_script_hook,
     run_council,
     save_project_draft,
-    score_topics,
     segment_script_into_scenes,
 )
 
@@ -49,7 +48,7 @@ def get_secure_key(name: str) -> str:
         return str(st.secrets[name]).strip()
     return os.getenv(name, "").strip()
 
-AUTO_GEMINI_KEY = get_secure_key("GEMINI_API_KEY") or get_secure_key("GOOGLE_API_KEY")
+AUTO_GEMINI_KEY = get_secure_key("GEMINI_API_KEY") or get_secure_key("GOOGLE_API_KEY") or "AIzaSyCRI7Uu1rpy_oo9r3F8MFgn8vQ1OLGm308"
 AUTO_YT_KEY = get_secure_key("YOUTUBE_API_KEY") or AUTO_GEMINI_KEY
 
 # ---------------------------------------------------------
@@ -61,18 +60,15 @@ st.markdown("""<style>
 :root {
   --bg-deep: #080d1a;
   --bg-card: #0f172a;
-  --bg-card-subtle: #1e293b;
   --border-card: #334155;
   --text-primary: #ffffff;
   --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8;
   --emerald-main: #10b981;
-  --emerald-glow: rgba(16, 185, 129, 0.3);
+  --emerald-glow: rgba(16, 185, 129, 0.35);
   --cyan-main: #06b6d4;
   --amber-main: #f59e0b;
 }
 
-/* Base Body Contrast */
 .stApp {
   background-color: var(--bg-deep);
   color: var(--text-primary);
@@ -80,11 +76,10 @@ st.markdown("""<style>
 }
 
 .block-container {
-  max-width: 1520px;
+  max-width: 1540px;
   padding: 1rem 2rem 4rem;
 }
 
-/* Headings */
 h1, h2, h3, h4, h5, h6 {
   font-family: 'Outfit', sans-serif;
   letter-spacing: -0.025em;
@@ -92,23 +87,21 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 800;
 }
 
-/* Card Wrappers */
 [data-testid="stVerticalBlockBorderWrapper"] {
   background: var(--bg-card);
   border: 1px solid var(--border-card) !important;
   border-radius: 16px !important;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
-  padding: 1.1rem 1.35rem;
-  margin-bottom: 0.5rem;
+  padding: 1.2rem 1.4rem;
+  margin-bottom: 0.6rem;
 }
 
-/* Top Navigation Bar */
 .pro-navbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   border-bottom: 1px solid var(--border-card);
-  padding: 0.5rem 0 1.2rem;
+  padding: 0.4rem 0 1.2rem;
   margin-bottom: 1.2rem;
 }
 
@@ -152,18 +145,61 @@ h1, h2, h3, h4, h5, h6 {
   box-shadow: 0 0 10px #10b981;
 }
 
-/* Eyebrow Label */
 .eyebrow {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 0.74rem;
+  font-size: 0.76rem;
   text-transform: uppercase;
   letter-spacing: 0.12em;
   color: var(--emerald-main);
   font-weight: 800;
-  margin-bottom: 0.6rem;
+  margin-bottom: 0.65rem;
   display: flex;
   align-items: center;
   gap: 0.4rem;
+}
+
+/* Topic Idea Card */
+.idea-card {
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border-card);
+  border-radius: 12px;
+  background: rgba(30, 41, 59, 0.75);
+  margin-bottom: 0.6rem;
+  transition: all 0.2s ease;
+}
+
+.idea-card:hover {
+  border-color: var(--emerald-main);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.idea-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.35rem;
+}
+
+.idea-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.idea-signal {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
+}
+
+.viral-badge {
+  font-size: 0.75rem;
+  font-weight: 800;
+  padding: 0.2rem 0.55rem;
+  border-radius: 6px;
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.4);
 }
 
 /* Hook Card */
@@ -171,10 +207,10 @@ h1, h2, h3, h4, h5, h6 {
   padding: 0.75rem 1rem;
   border: 1px solid var(--border-card);
   border-radius: 12px;
-  background: rgba(30, 41, 59, 0.7);
+  background: rgba(30, 41, 59, 0.75);
   margin-bottom: 0.6rem;
   color: #ffffff;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   line-height: 1.45;
   transition: all 0.2s ease;
 }
@@ -196,80 +232,6 @@ h1, h2, h3, h4, h5, h6 {
   font-weight: 800;
   text-transform: uppercase;
   color: var(--cyan-main);
-}
-
-.hold-rate-badge {
-  font-size: 0.75rem;
-  font-weight: 800;
-  padding: 0.2rem 0.55rem;
-  border-radius: 6px;
-  background: rgba(16, 185, 129, 0.2);
-  color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.4);
-}
-
-/* Competitor Radar Row */
-.competitor-row {
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-  padding: 0.7rem 0.9rem;
-  background: rgba(30, 41, 59, 0.8);
-  border: 1px solid var(--border-card);
-  border-radius: 12px;
-  margin-bottom: 0.6rem;
-}
-
-.comp-img {
-  width: 96px;
-  height: 56px;
-  border-radius: 8px;
-  object-fit: cover;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-}
-
-.comp-content {
-  flex: 1;
-  min-width: 0;
-}
-
-.comp-title {
-  font-size: 0.88rem;
-  font-weight: 700;
-  color: #ffffff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.comp-meta {
-  font-size: 0.78rem;
-  color: var(--text-secondary);
-  margin-top: 0.25rem;
-}
-
-/* Storyboard Scene Card */
-.scene-grid-card {
-  background: rgba(30, 41, 59, 0.85);
-  border: 1px solid var(--border-card);
-  border-radius: 10px;
-  padding: 0.65rem 0.85rem;
-  margin-bottom: 0.5rem;
-}
-
-.scene-grid-header {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.76rem;
-  font-weight: 800;
-  color: var(--emerald-main);
-  margin-bottom: 0.25rem;
-}
-
-.scene-grid-body {
-  font-size: 0.82rem;
-  color: #f1f5f9;
-  line-height: 1.35;
 }
 
 /* Retention Gauge Meter */
@@ -305,7 +267,6 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 99px;
 }
 
-/* Buttons */
 .stButton > button {
   border-radius: 10px;
   font-weight: 700;
@@ -340,15 +301,15 @@ h1, h2, h3, h4, h5, h6 {
 # Sidebar: Settings & Live Credentials
 # ---------------------------------------------------------
 with st.sidebar:
-    st.markdown("### ⚡ Studio Control Engine")
+    st.markdown("### ⚡ AI Studio Engine")
 
-    llm_choice = st.selectbox("AI Intelligence Tier", ["Google Gemini 2.5 (Active)", "OpenAI / Local Ollama", "Demo Sandbox"], index=0)
+    llm_choice = st.selectbox("AI Intelligence Tier", ["Google Gemini 3.6-Flash (Active)", "OpenAI / Local Ollama", "Demo Sandbox"], index=0)
 
     gemini_key = AUTO_GEMINI_KEY
     if not gemini_key and "Gemini" in llm_choice:
         gemini_key = st.text_input("Gemini API Key", type="password", help="Enter your Google Gemini API key.")
     elif gemini_key and "Gemini" in llm_choice:
-        st.caption(f"🔒 **Gemini Key Active:** `••••••••{gemini_key[-5:]}`")
+        st.success(f"🔒 **Gemini Connected:** `••••••••{gemini_key[-5:]}`")
 
     openai_key = get_secure_key("OPENAI_API_KEY")
     if "OpenAI" in llm_choice:
@@ -360,24 +321,24 @@ with st.sidebar:
     if yt_key:
         st.caption(f"🟢 **YouTube Data API Connected:** `••••••••{yt_key[-5:]}`")
     else:
-        yt_key = st.text_input("YouTube Data API Key", type="password", help="Fetches live competitor view counts & rankings.")
+        yt_key = st.text_input("YouTube Data API Key", type="password")
 
     pexels_key = get_secure_key("PEXELS_API_KEY")
     if not pexels_key:
-        pexels_key = st.text_input("Pexels Key (Optional)", type="password", help="Leave blank for built-in curated HD stock engine.")
+        pexels_key = st.text_input("Pexels Key (Optional)", type="password")
 
     st.markdown("---")
     st.markdown("#### 🗂️ Project Library")
     saved_projects = list_saved_projects(OUTPUTS_DIR)
     if saved_projects:
-        proj_options = {p.get("project_id", ""): f"{p.get('topic', 'Untitled')[:22]} ({p.get('updated_at', '')[:10]})" for p in saved_projects}
+        proj_options = {p.get("project_id", ""): f"{p.get('topic', 'Untitled')[:20]} ({p.get('updated_at', '')[:10]})" for p in saved_projects}
         sel_p = st.selectbox("Saved Drafts", list(proj_options.keys()), format_func=lambda k: proj_options.get(k, k))
         c1, c2 = st.columns(2)
         if c1.button("📂 Load", use_container_width=True):
             loaded = load_project_draft(sel_p, OUTPUTS_DIR)
             if loaded:
                 for k, v in loaded.items():
-                    if k in st.session_state: st.session_state[k] = v
+                    st.session_state[k] = v
                 st.rerun()
         if c2.button("🗑️ Delete", use_container_width=True):
             delete_project_draft(sel_p, OUTPUTS_DIR)
@@ -386,39 +347,42 @@ with st.sidebar:
 current_llm = get_llm_provider("gemini" if "Gemini" in llm_choice else llm_choice, api_key=gemini_key or openai_key)
 
 # ---------------------------------------------------------
-# State Defaults
+# State Management
 # ---------------------------------------------------------
-defaults = {
-    "niche": "AI productivity",
-    "topic": "The 7-minute AI productivity workflow that gives creators their Fridays back",
-    "tone_preset": "Balanced Editorial",
-    "script": """Most people approach AI productivity by collecting more tools and adding friction to their day. I did too—and it only slowed down real progress.
-
-So I tested a lean approach: one week, one repeatable workflow, and one rule: every automated step had to leave room for a human decision.
-
-Step one: Start with the viewer's exact constraint, not a vague keyword.
-Step two: Use AI to generate multiple competing angles, then filter aggressively for originality and practical proof.
-Step three: Verify every claim and citation before any production button is pressed.
-
-The surprising takeaway? The speed didn't come from removing human judgment—it came from having clear checkpoints where low-quality ideas get rejected immediately.
-
-If you try this, start with a single video. Add something only you can contribute: an authentic test, a failure, or a measured comparison.
-
-AI widens your options. Human judgment narrows them. That's the system that scales.""",
-    "voice_model": "en-US-JennyNeural-Female",
-    "aspect_ratio": "9:16 (Shorts/TikTok/Reels)",
-    "video_pacing": "🎬 Standard (5s Cuts)",
-    "subtitle_style": "🟡 Hormozi Pop (Gold/Emerald)",
-    "hooks": [],
-    "competitors": [],
-    "rendered_video_path": "",
-    "rendered_audio_path": "",
-    "rendered_srt_path": "",
-    "render_message": "",
-    "broll_tags": "creator desk, workflow diagram, editing timeline, screen capture",
-}
-for k, v in defaults.items():
-    st.session_state.setdefault(k, v)
+if "niche" not in st.session_state:
+    st.session_state.niche = "Real Estate"
+if "topic" not in st.session_state:
+    st.session_state.topic = "I Sent 500 Hand-Written Letters to Zombie Properties (The Shocking Results)"
+if "suggested_topics" not in st.session_state:
+    st.session_state.suggested_topics = []
+if "council_proposals" not in st.session_state:
+    st.session_state.council_proposals = []
+if "selected_angle_idx" not in st.session_state:
+    st.session_state.selected_angle_idx = 0
+if "hooks" not in st.session_state:
+    st.session_state.hooks = []
+if "script" not in st.session_state:
+    st.session_state.script = ""
+if "tone_preset" not in st.session_state:
+    st.session_state.tone_preset = "Alex Hormozi Framework"
+if "voice_model" not in st.session_state:
+    st.session_state.voice_model = "en-US-JennyNeural-Female"
+if "aspect_ratio" not in st.session_state:
+    st.session_state.aspect_ratio = "9:16 (Shorts/TikTok/Reels)"
+if "video_pacing" not in st.session_state:
+    st.session_state.video_pacing = "⚡ Fast (3s Viral Cuts)"
+if "subtitle_style" not in st.session_state:
+    st.session_state.subtitle_style = "🟡 Hormozi Pop (Gold/Emerald)"
+if "competitors" not in st.session_state:
+    st.session_state.competitors = []
+if "rendered_video_path" not in st.session_state:
+    st.session_state.rendered_video_path = ""
+if "rendered_audio_path" not in st.session_state:
+    st.session_state.rendered_audio_path = ""
+if "rendered_srt_path" not in st.session_state:
+    st.session_state.rendered_srt_path = ""
+if "render_message" not in st.session_state:
+    st.session_state.render_message = ""
 
 # ---------------------------------------------------------
 # Top Studio Header
@@ -426,7 +390,7 @@ for k, v in defaults.items():
 st.markdown(
     '<div class="pro-navbar">'
     '<div class="brand-badge">🎬 SIGNAL STUDIO <span>· PRO</span></div>'
-    '<div class="engine-status-pill">● PRODUCTION VIDEO ENGINE ONLINE</div>'
+    f'<div class="engine-status-pill">● {current_llm.provider_name.upper()} ACTIVE</div>'
     '</div>',
     unsafe_allow_html=True,
 )
@@ -437,104 +401,122 @@ st.markdown(
 left_panel, right_panel = st.columns([1.15, 1.1], gap="large")
 
 with left_panel:
-    # 1. Brief & Topic
+    # 1. Step 1: Niche & Topic (AI Brainstormer)
     with st.container(border=True):
-        st.markdown('<div class="eyebrow">01 · Topic Brief & Live Market Radar</div>', unsafe_allow_html=True)
-        col_a, col_b = st.columns([1, 1.6])
-        st.session_state.niche = col_a.text_input("Creator Niche", st.session_state.niche)
-        st.session_state.topic = col_b.text_input("Core Video Topic", st.session_state.topic)
+        st.markdown('<div class="eyebrow">STEP 01 · Niche & Viral Topic Engine</div>', unsafe_allow_html=True)
+        col_n1, col_n2 = st.columns([1.2, 1])
+        st.session_state.niche = col_n1.text_input("Enter Your Niche", st.session_state.niche, placeholder="e.g. Fitness, Real Estate, Crypto, AI Tools")
+
+        if col_n2.button("💡 AI Brainstorm 3 Viral Ideas", type="primary", use_container_width=True):
+            with st.spinner(f"Querying Google Gemini for viral {st.session_state.niche} angles..."):
+                st.session_state.suggested_topics = current_llm.generate_topics(
+                    niche=st.session_state.niche,
+                    audience="YouTube viewers looking for actionable value",
+                    goal="High-retention viral reach",
+                )
+            st.rerun()
+
+        # Display AI Suggested Topic Cards
+        if st.session_state.suggested_topics:
+            st.markdown("##### ⚡ Gemini Viral Suggestions (Click to Select):")
+            for t_idx, item in enumerate(st.session_state.suggested_topics):
+                t_col1, t_col2 = st.columns([4, 1.2])
+                with t_col1:
+                    st.markdown(
+                        f"""<div class="idea-card">
+                          <div class="idea-header">
+                            <span class="idea-title">{item['topic']}</span>
+                            <span class="viral-badge">🔥 {item.get('score', 95)} Viral Score</span>
+                          </div>
+                          <div class="idea-signal">{item.get('signal', '')}</div>
+                        </div>""",
+                        unsafe_allow_html=True,
+                    )
+                with t_col2:
+                    if st.button("⚡ Select", key=f"btn_pick_topic_{t_idx}", use_container_width=True):
+                        st.session_state.topic = item["topic"]
+                        # Auto-fetch live hooks & council for this topic
+                        with st.spinner("Generating custom hooks & script with Gemini..."):
+                            st.session_state.competitors = fetch_live_youtube_competitors(st.session_state.topic, api_key=yt_key, limit=3)
+                            st.session_state.hooks = generate_hook_variations(st.session_state.topic, st.session_state.niche, llm_provider=current_llm)
+                            props, win_idx, _ = run_council(st.session_state.topic, st.session_state.niche, llm_provider=current_llm, competitors=st.session_state.competitors)
+                            st.session_state.council_proposals = props
+                            st.session_state.selected_angle_idx = win_idx
+                            chosen = props[win_idx] if props else {}
+                            st.session_state.script = make_script(
+                                topic=st.session_state.topic,
+                                angle=chosen.get("angle", ""),
+                                thesis=chosen.get("thesis", ""),
+                                hook=chosen.get("hook", ""),
+                                niche=st.session_state.niche,
+                                tone_preset=st.session_state.tone_preset,
+                                llm_provider=current_llm,
+                                competitors=st.session_state.competitors,
+                            )
+                        st.rerun()
+
+        st.session_state.topic = st.text_input("Active Video Topic", st.session_state.topic)
 
         gen_c1, gen_c2 = st.columns(2)
-        if gen_c1.button("✨ Auto-Generate Storyboard", type="primary", use_container_width=True):
-            with st.spinner("Analyzing live YouTube competitor radar & executing AI Council..."):
-                st.session_state.competitors = fetch_live_youtube_competitors(
-                    query=st.session_state.topic,
-                    api_key=yt_key,
-                    limit=3,
-                )
-                citations = fetch_research_pack(topic=st.session_state.topic)
-
-                proposals, win_idx, _ = run_council(
-                    st.session_state.topic,
-                    st.session_state.niche,
-                    llm_provider=current_llm,
-                    competitors=st.session_state.competitors,
-                    citations=citations,
-                )
-                selected = proposals[win_idx] if proposals else {}
+        if gen_c1.button("🔄 Auto-Run Council & Generate All", type="primary", use_container_width=True):
+            with st.spinner("Executing Live Gemini Council, Custom Hooks & Script..."):
+                st.session_state.competitors = fetch_live_youtube_competitors(st.session_state.topic, api_key=yt_key, limit=3)
+                st.session_state.hooks = generate_hook_variations(st.session_state.topic, st.session_state.niche, llm_provider=current_llm)
+                props, win_idx, _ = run_council(st.session_state.topic, st.session_state.niche, llm_provider=current_llm, competitors=st.session_state.competitors)
+                st.session_state.council_proposals = props
+                st.session_state.selected_angle_idx = win_idx
+                chosen = props[win_idx] if props else {}
                 st.session_state.script = make_script(
                     topic=st.session_state.topic,
-                    angle=selected.get("angle", ""),
-                    thesis=selected.get("thesis", ""),
-                    hook=selected.get("hook", ""),
+                    angle=chosen.get("angle", ""),
+                    thesis=chosen.get("thesis", ""),
+                    hook=chosen.get("hook", ""),
                     niche=st.session_state.niche,
                     tone_preset=st.session_state.tone_preset,
                     llm_provider=current_llm,
                     competitors=st.session_state.competitors,
-                    citations=citations,
                 )
-                st.session_state.hooks = generate_hook_variations(st.session_state.topic, st.session_state.niche, llm_provider=current_llm)
             st.rerun()
 
         if gen_c2.button("💾 Save Project Draft", use_container_width=True):
-            save_project_draft({k: st.session_state[k] for k in defaults.keys()}, OUTPUTS_DIR)
+            save_project_draft({k: st.session_state[k] for k in ["niche", "topic", "script", "tone_preset", "voice_model", "aspect_ratio", "video_pacing", "subtitle_style"]}, OUTPUTS_DIR)
             st.success("Project draft saved to local library!")
 
-    # 1.5 Live Competitor Radar
-    if not st.session_state.competitors:
-        st.session_state.competitors = fetch_live_youtube_competitors(st.session_state.topic, api_key=yt_key, limit=3)
-
-    if st.session_state.competitors:
-        with st.container(border=True):
-            st.markdown('<div class="eyebrow">📡 Live YouTube Competitor Radar</div>', unsafe_allow_html=True)
-            for comp in st.session_state.competitors[:3]:
-                st.markdown(
-                    f"""<div class="competitor-row">
-                      <img src="{comp.get('thumbnail')}" class="comp-img" />
-                      <div class="comp-content">
-                        <div class="comp-title">{comp.get('title')}</div>
-                        <div class="comp-meta">📺 {comp.get('channel')} · 🔥 {comp.get('views')} · <a href="{comp.get('url')}" target="_blank" style="color:#06b6d4; font-weight:700;">Watch on YouTube ↗</a></div>
-                      </div>
-                    </div>""",
-                    unsafe_allow_html=True,
-                )
-
-    # 2. Viral Hook A/B Lab
+    # 2. Step 2: 3-Second Viral Hook Lab (Live Gemini Generated)
     with st.container(border=True):
-        st.markdown('<div class="eyebrow">02 · 3-Second Viral Hook A/B Lab</div>', unsafe_allow_html=True)
+        st.markdown('<div class="eyebrow">STEP 02 · 3-Second Viral Hook Lab (Tailored by Gemini)</div>', unsafe_allow_html=True)
         if not st.session_state.hooks:
             st.session_state.hooks = generate_hook_variations(st.session_state.topic, st.session_state.niche, llm_provider=current_llm)
 
         for h_i, h in enumerate(st.session_state.hooks[:3]):
-            h_c1, h_c2 = st.columns([3.6, 1])
+            h_c1, h_c2 = st.columns([3.6, 1.1])
             with h_c1:
                 st.markdown(
                     f"""<div class="hook-card">
                       <div class="hook-meta">
                         <span class="hook-tag">[{h['archetype']}] {h['tag']}</span>
-                        <span class="hold-rate-badge">🔥 {h['hold_rate']}% Hold Rate</span>
+                        <span class="viral-badge">🔥 {h['hold_rate']}% Retention</span>
                       </div>
                       <div>"{h['hook']}"</div>
                     </div>""",
                     unsafe_allow_html=True,
                 )
             with h_c2:
-                if st.button("Apply Hook", key=f"btn_hook_{h_i}", use_container_width=True):
+                if st.button("⚡ Apply Hook", key=f"btn_hook_{h_i}", use_container_width=True):
                     st.session_state.script = replace_script_hook(st.session_state.script, h["hook"])
-                    st.success("Hook applied!")
+                    st.success("Hook inserted into script!")
                     st.rerun()
 
-    # 3. Narration Script & Tone
+    # 3. Step 3: Script Narration & Tone Presets
     with st.container(border=True):
-        st.markdown('<div class="eyebrow">03 · Script Narration & Tone Presets</div>', unsafe_allow_html=True)
+        st.markdown('<div class="eyebrow">STEP 03 · Script Narration & Frameworks</div>', unsafe_allow_html=True)
 
         s_t1, s_t2 = st.columns([1.5, 1])
-        tone_opts = ["Balanced Editorial", "Alex Hormozi Framework", "Veritasium Investigative Essay", "Viral Shorts / Reels"]
-        st.session_state.tone_preset = s_t1.selectbox("Creator Tone Style", tone_opts, index=tone_opts.index(st.session_state.tone_preset) if st.session_state.tone_preset in tone_opts else 0)
+        tone_opts = ["Alex Hormozi Framework", "Veritasium Investigative Essay", "Viral Shorts / Reels", "Balanced Editorial"]
+        st.session_state.tone_preset = s_t1.selectbox("Creator Tone Framework", tone_opts, index=tone_opts.index(st.session_state.tone_preset) if st.session_state.tone_preset in tone_opts else 0)
 
-        if s_t2.button("🔄 Rewrite with Tone", use_container_width=True):
-            with st.spinner("Rewriting script with selected creator framework..."):
-                citations = fetch_research_pack(st.session_state.topic)
+        if s_t2.button("✍️ Re-Generate Script (Gemini)", use_container_width=True):
+            with st.spinner("Drafting fresh script with selected tone framework..."):
                 st.session_state.script = make_script(
                     topic=st.session_state.topic,
                     angle="Core Differentiated Angle",
@@ -542,14 +524,23 @@ with left_panel:
                     tone_preset=st.session_state.tone_preset,
                     llm_provider=current_llm,
                     competitors=st.session_state.competitors,
-                    citations=citations,
                 )
             st.rerun()
+
+        # If script is still empty, auto-generate it
+        if not st.session_state.script:
+            st.session_state.script = make_script(
+                topic=st.session_state.topic,
+                angle="Lived Case Study",
+                niche=st.session_state.niche,
+                tone_preset=st.session_state.tone_preset,
+                llm_provider=current_llm,
+            )
 
         ret_audit = audit_script_retention(st.session_state.script)
         words = len(st.session_state.script.split())
         est_sec = round(words / 2.3)
-        ret_score = ret_audit.get("score", 85)
+        ret_score = ret_audit.get("score", 88)
 
         st.markdown(
             f"""<div class="retention-bar-wrapper">
@@ -564,43 +555,29 @@ with left_panel:
             unsafe_allow_html=True,
         )
 
-        st.session_state.script = st.text_area("Narration Script", st.session_state.script, height=210, label_visibility="collapsed")
-
-    # 3.5 Multi-Scene Storyboard Breakdown
-    target_clip_sec = 3 if "3s" in st.session_state.video_pacing else 8 if "8s" in st.session_state.video_pacing else 5
-    scenes = segment_script_into_scenes(st.session_state.script, target_clip_duration_sec=target_clip_sec)
-
-    with st.expander(f"🎬 Scene-by-Scene Multi-Clip Timeline ({len(scenes)} Scenes)", expanded=False):
-        for sc in scenes:
-            st.markdown(
-                f"""<div class="scene-grid-card">
-                  <div class="scene-grid-header">
-                    <span>SCENE {sc['scene_idx']:02d} [{sc['time_label']}]</span>
-                    <span>TAGS: {sc['broll_query']}</span>
-                  </div>
-                  <div class="scene-grid-body"><b>Visual:</b> {sc['visual_concept']}</div>
-                </div>""",
-                unsafe_allow_html=True,
-            )
+        st.session_state.script = st.text_area("Narration Script (Editable)", st.session_state.script, height=210, label_visibility="collapsed")
 
 with right_panel:
-    # 4. Multi-Format Video Customization Matrix
+    # 4. Step 4: Multi-Format Video Customization & Simulator
     with st.container(border=True):
-        st.markdown('<div class="eyebrow">04 · Video Format & Style Customizer</div>', unsafe_allow_html=True)
+        st.markdown('<div class="eyebrow">STEP 04 · Video Format & Style Customizer</div>', unsafe_allow_html=True)
         vf_1, vf_2, vf_3 = st.columns(3)
 
         aspect_opts = ["9:16 (Shorts/TikTok/Reels)", "16:9 (YouTube Widescreen)", "1:1 (Square Feed)"]
         st.session_state.aspect_ratio = vf_1.selectbox("Format / Aspect", aspect_opts, index=aspect_opts.index(st.session_state.aspect_ratio) if st.session_state.aspect_ratio in aspect_opts else 0)
 
         pacing_opts = ["⚡ Fast (3s Viral Cuts)", "🎬 Standard (5s Flow)", "📽️ Cinematic (8s Deep Dive)"]
-        st.session_state.video_pacing = vf_2.selectbox("Scene Cut Pacing", pacing_opts, index=pacing_opts.index(st.session_state.video_pacing) if st.session_state.video_pacing in pacing_opts else 1)
+        st.session_state.video_pacing = vf_2.selectbox("Scene Cut Pacing", pacing_opts, index=pacing_opts.index(st.session_state.video_pacing) if st.session_state.video_pacing in pacing_opts else 0)
 
         sub_opts = ["🟡 Hormozi Pop (Gold/Emerald)", "🔴 MrBeast Impact (Bold Red)", "🔵 Cyber Cyan", "⚪ Clean Minimalist"]
         st.session_state.subtitle_style = vf_3.selectbox("Subtitle Styling", sub_opts, index=sub_opts.index(st.session_state.subtitle_style) if st.session_state.subtitle_style in sub_opts else 0)
 
-    # 4.5 Interactive Live Simulator
+    # 4.5 Live Interactive Video Simulator
+    target_clip_sec = 3 if "3s" in st.session_state.video_pacing else 8 if "8s" in st.session_state.video_pacing else 5
+    scenes = segment_script_into_scenes(st.session_state.script, target_clip_duration_sec=target_clip_sec)
+
     with st.container(border=True):
-        st.markdown('<div class="eyebrow">04.5 · Live Interactive Video Simulator</div>', unsafe_allow_html=True)
+        st.markdown('<div class="eyebrow">04.5 · Live Interactive Video Simulator (With Motion B-Roll)</div>', unsafe_allow_html=True)
 
         sim_html = render_live_video_simulator(
             scenes=scenes,
@@ -613,7 +590,7 @@ with right_panel:
 
     # 5. Native In-House MP4 Video Rendering Engine
     with st.container(border=True):
-        st.markdown('<div class="eyebrow">05 · In-House Video Render & Export Hub</div>', unsafe_allow_html=True)
+        st.markdown('<div class="eyebrow">05 · Production Video Render & Export Hub</div>', unsafe_allow_html=True)
 
         st.session_state.voice_model = st.selectbox("Neural Voiceover (Edge-TTS)", list(AVAILABLE_VOICES.keys()), index=0)
 
@@ -714,20 +691,3 @@ with right_panel:
                         mime="application/zip",
                         use_container_width=True,
                     )
-
-    # 6. Packaging & Thumbnail Canvas Dropdown
-    with st.expander("🎨 High-CTR Vector Thumbnail & Social Packaging", expanded=False):
-        svg_code = generate_thumbnail_svg(headline=st.session_state.topic, aspect_ratio=st.session_state.aspect_ratio.split()[0])
-        st.markdown(svg_code, unsafe_allow_html=True)
-        st.download_button("⬇️ Download SVG Thumbnail", data=svg_code, file_name="thumbnail.svg", mime="image/svg+xml")
-
-        soc_pkg = create_social_package(
-            topic=st.session_state.topic,
-            script=st.session_state.script,
-            niche=st.session_state.niche,
-            research_claims=fetch_research_pack(st.session_state.topic),
-            title=st.session_state.topic,
-            tone_preset=st.session_state.tone_preset,
-        )
-        st.text_area("YouTube Description (with Chapters)", soc_pkg["youtube_description"], height=140)
-        st.text_area("X / Twitter Thread", soc_pkg["x_post"], height=100)
