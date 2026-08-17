@@ -14,26 +14,6 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# Reliable royalty-free open-access sample stock video clips with working direct URLs
-CURATED_STOCK_LIBRARY = [
-    {
-        "id": "clip_nature_01",
-        "title": "Macro Flow Nature Timelapse",
-        "category": "lifestyle",
-        "url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
-        "preview": "https://images.unsplash.com/photo-1518531933037-91b2f5f229cc?w=600&auto=format&fit=crop&q=60",
-        "keywords": ["creator", "nature", "focus", "lifestyle", "time", "calm"],
-    },
-    {
-        "id": "clip_tech_02",
-        "title": "Abstract Data Movement",
-        "category": "tech",
-        "url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
-        "preview": "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=600&auto=format&fit=crop&q=60",
-        "keywords": ["code", "ai", "terminal", "algorithm", "python", "developer", "system"],
-    },
-]
-
 
 def _find_ffmpeg() -> str | None:
     sys_ffmpeg = shutil.which("ffmpeg")
@@ -53,13 +33,14 @@ def _find_ffmpeg() -> str | None:
     return None
 
 
-def generate_motion_broll_clip(
+def generate_themed_motion_clip(
     output_path: Path,
     scene_idx: int = 1,
     aspect_ratio: str = "16:9",
     duration_sec: int = 5,
+    visual_theme: str = "cyber_matrix",
 ) -> bool:
-    """Generate dynamic, high-energy animated motion graphics video clips locally via FFmpeg."""
+    """Generate dynamic themed motion graphics video clips locally via FFmpeg."""
     ffmpeg_exe = _find_ffmpeg()
     if not ffmpeg_exe:
         return False
@@ -72,31 +53,44 @@ def generate_motion_broll_clip(
     else:
         size = "1280x720"
 
-    # Motion patterns to vary across scenes
-    patterns = [
-        f"mandelbrot=s={size}:r=24:d={duration_sec}",
-        f"testsrc2=s={size}:r=24:d={duration_sec}",
-        f"sierpinski=s={size}:r=24:d={duration_sec}",
-        f"cellauto=s={size}:r=24:d={duration_sec}",
-        f"color=c=0x0a1e16:s={size}:r=24:d={duration_sec}",
-    ]
+    theme_key = visual_theme.lower()
+    if "cyber" in theme_key or "code" in theme_key:
+        pattern = f"testsrc2=s={size}:r=24:d={duration_sec}"
+        vf = "hue=H=2*PI*t/12:s=0.9,curves=green,eq=contrast=1.3:brightness=-0.05"
+    elif "neon" in theme_key or "city" in theme_key:
+        pattern = f"mandelbrot=s={size}:r=24:d={duration_sec}"
+        vf = "hue=H=3*PI*t/8:s=1.0,eq=contrast=1.4:brightness=0.02"
+    elif "space" in theme_key or "cosmos" in theme_key:
+        pattern = f"sierpinski=s={size}:r=24:d={duration_sec}"
+        vf = "hue=H=PI*t/10:s=0.7,eq=contrast=1.2:brightness=-0.1"
+    elif "crypto" in theme_key or "finance" in theme_key:
+        pattern = f"cellauto=s={size}:r=24:d={duration_sec}"
+        vf = "scale={size},hue=s=0.8,curves=strong_contrast"
+    else:
+        # Kinetic Motion Default
+        patterns = [
+            f"mandelbrot=s={size}:r=24:d={duration_sec}",
+            f"testsrc2=s={size}:r=24:d={duration_sec}",
+            f"sierpinski=s={size}:r=24:d={duration_sec}",
+        ]
+        pattern = patterns[(scene_idx - 1) % len(patterns)]
+        vf = "hue=H=2*PI*t/10:s=0.85,eq=contrast=1.25"
 
-    pat = patterns[(scene_idx - 1) % len(patterns)]
     cmd = [
         ffmpeg_exe, "-y",
         "-f", "lavfi",
-        "-i", pat,
-        "-vf", "hue=H=2*PI*t/10:s=0.8,eq=contrast=1.2:brightness=-0.05",
+        "-i", pattern,
+        "-vf", vf,
         "-c:v", "libx264",
         "-pix_fmt", "yuv420p",
         "-t", str(duration_sec),
         str(output_path.resolve().as_posix()),
     ]
     try:
-        res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         return output_path.exists() and output_path.stat().st_size > 1000
     except Exception as e:
-        logger.warning(f"Motion B-roll generation failed: {e}")
+        logger.warning(f"Themed B-roll generation failed: {e}")
         return False
 
 
@@ -106,7 +100,6 @@ def search_pexels_videos(
     orientation: str = "landscape",
     per_page: int = 5,
 ) -> list[dict[str, Any]]:
-    """Search Pexels API for royalty-free stock videos matching scene queries."""
     clean_key = api_key.strip() or os.getenv("PEXELS_API_KEY", "")
     if not clean_key:
         return []
@@ -143,7 +136,6 @@ def search_pexels_videos(
 
 
 def download_video_clip(video_url: str, output_path: Path) -> bool:
-    """Download video clip to local disk cache with browser headers."""
     if output_path.exists() and output_path.stat().st_size > 10_000:
         return True
 
@@ -167,8 +159,9 @@ def get_clips_for_scenes(
     pexels_api_key: str = "",
     aspect_ratio: str = "16:9",
     cache_dir: Path | None = None,
+    visual_theme: str = "cyber_matrix",
 ) -> list[dict[str, Any]]:
-    """Retrieve, generate, and cache distinct video clips for every storyboard scene."""
+    """Retrieve, generate, and cache distinct video clips for every storyboard scene with theme support."""
     out_cache = cache_dir or Path(__file__).parent.parent / "studio_outputs" / "stock_cache"
     out_cache.mkdir(parents=True, exist_ok=True)
 
@@ -180,27 +173,32 @@ def get_clips_for_scenes(
         query = sc.get("broll_query", "creator desk")
         clip_info = None
 
-        # 1. Try Pexels Live Search if API Key is configured
         if pexels_api_key.strip():
             live_clips = search_pexels_videos(query, api_key=pexels_api_key, orientation=orientation, per_page=3)
             if live_clips:
                 clip_info = live_clips[idx % len(live_clips)]
 
         slug = re.sub(r"[^a-z0-9]+", "_", query.lower())[:20] or f"scene_{scene_num}"
-        clip_file = out_cache / f"{slug}_{scene_num}.mp4"
+        theme_slug = re.sub(r"[^a-z0-9]+", "_", visual_theme.lower())[:10]
+        clip_file = out_cache / f"{theme_slug}_{slug}_{scene_num}.mp4"
 
-        # 2. Download from Pexels or generate dynamic motion graphics clip locally
         if clip_info:
             download_video_clip(clip_info["url"], clip_file)
         else:
             if not clip_file.exists() or clip_file.stat().st_size < 1000:
-                generate_motion_broll_clip(clip_file, scene_idx=scene_num, aspect_ratio=aspect_ratio, duration_sec=sc.get("duration", 5))
+                generate_themed_motion_clip(
+                    clip_file,
+                    scene_idx=scene_num,
+                    aspect_ratio=aspect_ratio,
+                    duration_sec=sc.get("duration", 5),
+                    visual_theme=visual_theme,
+                )
 
         matched_scenes.append({
             **sc,
             "clip_id": f"scene_clip_{scene_num}",
-            "clip_title": f"Scene {scene_num} Motion B-Roll",
-            "clip_url": clip_info.get("url", "") if clip_info else "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
+            "clip_title": f"Scene {scene_num} ({visual_theme})",
+            "clip_url": clip_info.get("url", "") if clip_info else "",
             "clip_preview": clip_info.get("preview", "") if clip_info else "",
             "clip_local_path": str(clip_file.resolve()) if clip_file.exists() and clip_file.stat().st_size > 1000 else "",
         })

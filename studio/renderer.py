@@ -24,12 +24,10 @@ FFMPEG_WIN64_ZIP_URL = "https://github.com/vot/ffbinaries-prebuilt/releases/down
 
 def _ensure_ffmpeg(output_dir: Path | None = None) -> str | None:
     """Find or automatically download static portable FFmpeg executable."""
-    # 1. Check system PATH
     sys_ffmpeg = shutil.which("ffmpeg")
     if sys_ffmpeg:
         return sys_ffmpeg
 
-    # 2. Check imageio_ffmpeg
     try:
         import imageio_ffmpeg  # type: ignore
 
@@ -39,7 +37,6 @@ def _ensure_ffmpeg(output_dir: Path | None = None) -> str | None:
     except Exception:
         pass
 
-    # 3. Check all project bin locations
     search_paths = [
         Path(__file__).parent.parent / "studio_outputs" / "bin" / "ffmpeg.exe",
         Path(__file__).parent.parent / "studio_outputs" / "test_run" / "bin" / "ffmpeg.exe",
@@ -52,13 +49,11 @@ def _ensure_ffmpeg(output_dir: Path | None = None) -> str | None:
         if p.exists() and p.stat().st_size > 1_000_000:
             return str(p.resolve())
 
-    # 4. Search recursively inside studio_outputs
     root_outputs = Path(__file__).parent.parent / "studio_outputs"
     for found in root_outputs.glob("**/ffmpeg.exe"):
         if found.stat().st_size > 1_000_000:
             return str(found.resolve())
 
-    # 5. Auto-download static portable binary
     try:
         target_bin = (root_outputs / "bin").resolve()
         target_bin.mkdir(parents=True, exist_ok=True)
@@ -95,7 +90,7 @@ def render_video_pipeline(
     pexels_api_key: str = "",
     progress_callback: ProgressCallback | None = None,
 ) -> tuple[bool, str, Path | None]:
-    """Execute complete in-house video generation: TTS + Multi-Scene B-Roll + Subtitles + MP4 Rendering."""
+    """Execute complete in-house video generation: Voiceover Audio + Multi-Scene B-Roll + Subtitles + MP4 Rendering."""
     abs_out_dir = Path(output_dir).resolve()
     abs_out_dir.mkdir(parents=True, exist_ok=True)
     slug = re.sub(r"[^a-z0-9]+", "_", topic.lower()).strip("_")[:32] or "studio_video"
@@ -105,8 +100,8 @@ def render_video_pipeline(
         if progress_callback:
             progress_callback(msg, pct)
 
-    # 1. Synthesize Speech
-    report("🎙️ Step 1/4: Synthesizing Microsoft Neural Voiceover...", 0.20)
+    # 1. Synthesize Speech Audio (Windows SAPI / Edge-TTS)
+    report("🎙️ Step 1/4: Synthesizing Spoken Voiceover Audio...", 0.20)
     voice_name = settings.get("voice_name", "en-US-JennyNeural-Female")
     voice_res = synthesize_speech(
         text=script,
@@ -118,23 +113,25 @@ def render_video_pipeline(
     srt_path = voice_res.get("srt_path")
     audio_duration = max(5.0, float(voice_res.get("duration", 10.0)))
 
-    # 2. Segment Storyboard & Scenes with customizable pacing
-    report("🎞️ Step 2/4: Segmenting Scene Storyboard & Multi-Clip Pacing...", 0.45)
-    aspect_ratio = settings.get("video_aspect", "16:9")
-    clip_dur = int(settings.get("video_clip_duration", 5))
+    # 2. Segment Storyboard & Scenes
+    report("🎞️ Step 2/4: Segmenting Storyboard & Pacing Scenes...", 0.45)
+    aspect_ratio = settings.get("video_aspect", "9:16")
+    clip_dur = int(settings.get("video_clip_duration", 3))
     scenes = segment_script_into_scenes(script, target_clip_duration_sec=clip_dur)
 
-    # 3. Acquire B-Roll Video Clips
-    report("📥 Step 3/4: Downloading & Caching Stock Video Clips for Each Scene...", 0.70)
+    # 3. Acquire / Synthesize Dynamic B-Roll Video Clips
+    report("📥 Step 3/4: Generating Dynamic Multi-Scene Video Backgrounds...", 0.70)
+    visual_theme = settings.get("visual_theme", "cyber_matrix")
     matched_scenes = get_clips_for_scenes(
         scenes=scenes,
         pexels_api_key=pexels_api_key,
         aspect_ratio=aspect_ratio,
         cache_dir=abs_out_dir / "stock_cache",
+        visual_theme=visual_theme,
     )
 
-    # 4. Video Assembly / Rendering
-    report("🎬 Step 4/4: Stitching Multi-Scene Video, Audio & Subtitles into MP4...", 0.90)
+    # 4. Master Video Assembly (FFmpeg)
+    report("🎬 Step 4/4: Stitching Multi-Scene Video & Loud Audio into MP4...", 0.90)
 
     rendered = False
     render_note = ""
@@ -145,17 +142,9 @@ def render_video_pipeline(
             valid_clips = []
             for sc in matched_scenes:
                 local_p = sc.get("clip_local_path")
-                if local_p and os.path.exists(local_p) and os.path.getsize(local_p) > 10_000:
+                if local_p and os.path.exists(local_p) and os.path.getsize(local_p) > 1000:
                     valid_clips.append(str(Path(local_p).resolve()))
 
-            if not valid_clips:
-                for c_dir in [abs_out_dir / "stock_cache", abs_out_dir.parent / "stock_cache", Path(__file__).parent.parent / "studio_outputs" / "stock_cache"]:
-                    if c_dir.exists():
-                        for f in c_dir.glob("*.mp4"):
-                            if f.stat().st_size > 10_000 and "final" not in f.name:
-                                valid_clips.append(str(f.resolve()))
-
-            # Determine filter for 16:9, 9:16 (Shorts), or 1:1 (Square)
             if "9:16" in aspect_ratio:
                 vf_filter = "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,setsar=1"
                 res_w, res_h = 720, 1280
@@ -182,15 +171,17 @@ def render_video_pipeline(
                 cmd = [
                     ffmpeg_bin, "-y",
                     "-f", "lavfi",
-                    "-i", f"color=c=0x0a1420:s={res_w}x{res_h}:r=24:d={int(audio_duration) + 1}",
+                    "-i", f"mandelbrot=s={res_w}x{res_h}:r=24:d={int(audio_duration) + 1}",
                 ]
 
-            if mp3_path and os.path.exists(mp3_path) and os.path.getsize(mp3_path) > 100:
+            # Merge Voice Audio
+            if mp3_path and os.path.exists(mp3_path) and os.path.getsize(mp3_path) > 1000:
                 cmd.extend([
                     "-i", str(Path(mp3_path).resolve().as_posix()),
                     "-vf", vf_filter,
                     "-c:v", "libx264",
                     "-c:a", "aac",
+                    "-b:a", "192k",
                     "-shortest",
                     "-pix_fmt", "yuv420p",
                 ])
@@ -203,19 +194,17 @@ def render_video_pipeline(
                 ])
 
             cmd.append(str(final_mp4.resolve().as_posix()))
-            res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+
             if final_mp4.exists() and final_mp4.stat().st_size > 10_000:
                 rendered = True
-                render_note = f"Assembled via Native FFmpeg Video Engine ({aspect_ratio})"
-            else:
-                logger.warning(f"FFmpeg stdout/err: {res.stderr}")
+                render_note = f"Master Video Rendered with Voiceover Audio ({aspect_ratio})"
         except Exception as exc:
-            logger.warning(f"FFmpeg render attempt failed: {exc}")
+            logger.warning(f"FFmpeg render failed: {exc}")
 
-    # Final Package Assembly
-    report("✨ Complete! Video is ready for playback & download.", 1.0)
+    report("✨ Master MP4 Video generation complete!", 1.0)
 
     if rendered and final_mp4.exists():
-        return True, f"🎉 {aspect_ratio} MP4 Video Rendered Successfully! ({render_note})", final_mp4
+        return True, f"🎉 {aspect_ratio} Master Video Ready! ({render_note})", final_mp4
 
     return True, "🎙️ Audio voiceover and subtitles compiled!", Path(mp3_path) if mp3_path and os.path.exists(mp3_path) else None

@@ -158,7 +158,6 @@ h1, h2, h3, h4, h5, h6 {
   gap: 0.4rem;
 }
 
-/* Topic Idea Card */
 .idea-card {
   padding: 0.85rem 1rem;
   border: 1px solid var(--border-card);
@@ -202,7 +201,6 @@ h1, h2, h3, h4, h5, h6 {
   border: 1px solid rgba(16, 185, 129, 0.4);
 }
 
-/* Hook Card */
 .hook-card {
   padding: 0.75rem 1rem;
   border: 1px solid var(--border-card);
@@ -234,7 +232,6 @@ h1, h2, h3, h4, h5, h6 {
   color: var(--cyan-main);
 }
 
-/* Retention Gauge Meter */
 .retention-bar-wrapper {
   background: rgba(30, 41, 59, 0.85);
   border: 1px solid var(--border-card);
@@ -325,7 +322,7 @@ with st.sidebar:
 
     pexels_key = get_secure_key("PEXELS_API_KEY")
     if not pexels_key:
-        pexels_key = st.text_input("Pexels Key (Optional)", type="password")
+        pexels_key = st.text_input("Pexels Key (Optional)", type="password", help="Leave blank for built-in high-energy motion graphics engine.")
 
     st.markdown("---")
     st.markdown("#### 🗂️ Project Library")
@@ -347,7 +344,7 @@ with st.sidebar:
 current_llm = get_llm_provider("gemini" if "Gemini" in llm_choice else llm_choice, api_key=gemini_key or openai_key)
 
 # ---------------------------------------------------------
-# State Management
+# State Defaults
 # ---------------------------------------------------------
 if "niche" not in st.session_state:
     st.session_state.niche = "Real Estate"
@@ -371,6 +368,8 @@ if "aspect_ratio" not in st.session_state:
     st.session_state.aspect_ratio = "9:16 (Shorts/TikTok/Reels)"
 if "video_pacing" not in st.session_state:
     st.session_state.video_pacing = "⚡ Fast (3s Viral Cuts)"
+if "visual_theme" not in st.session_state:
+    st.session_state.visual_theme = "⚡ Cyberpunk Matrix & Code"
 if "subtitle_style" not in st.session_state:
     st.session_state.subtitle_style = "🟡 Hormozi Pop (Gold/Emerald)"
 if "competitors" not in st.session_state:
@@ -435,7 +434,6 @@ with left_panel:
                 with t_col2:
                     if st.button("⚡ Select", key=f"btn_pick_topic_{t_idx}", use_container_width=True):
                         st.session_state.topic = item["topic"]
-                        # Auto-fetch live hooks & council for this topic
                         with st.spinner("Generating custom hooks & script with Gemini..."):
                             st.session_state.competitors = fetch_live_youtube_competitors(st.session_state.topic, api_key=yt_key, limit=3)
                             st.session_state.hooks = generate_hook_variations(st.session_state.topic, st.session_state.niche, llm_provider=current_llm)
@@ -479,7 +477,7 @@ with left_panel:
             st.rerun()
 
         if gen_c2.button("💾 Save Project Draft", use_container_width=True):
-            save_project_draft({k: st.session_state[k] for k in ["niche", "topic", "script", "tone_preset", "voice_model", "aspect_ratio", "video_pacing", "subtitle_style"]}, OUTPUTS_DIR)
+            save_project_draft({k: st.session_state[k] for k in ["niche", "topic", "script", "tone_preset", "voice_model", "aspect_ratio", "video_pacing", "subtitle_style", "visual_theme"]}, OUTPUTS_DIR)
             st.success("Project draft saved to local library!")
 
     # 2. Step 2: 3-Second Viral Hook Lab (Live Gemini Generated)
@@ -527,7 +525,6 @@ with left_panel:
                 )
             st.rerun()
 
-        # If script is still empty, auto-generate it
         if not st.session_state.script:
             st.session_state.script = make_script(
                 topic=st.session_state.topic,
@@ -560,24 +557,35 @@ with left_panel:
 with right_panel:
     # 4. Step 4: Multi-Format Video Customization & Simulator
     with st.container(border=True):
-        st.markdown('<div class="eyebrow">STEP 04 · Video Format & Style Customizer</div>', unsafe_allow_html=True)
-        vf_1, vf_2, vf_3 = st.columns(3)
+        st.markdown('<div class="eyebrow">STEP 04 · Video Style & Visual Theme Customizer</div>', unsafe_allow_html=True)
+        vf_1, vf_2 = st.columns(2)
 
         aspect_opts = ["9:16 (Shorts/TikTok/Reels)", "16:9 (YouTube Widescreen)", "1:1 (Square Feed)"]
-        st.session_state.aspect_ratio = vf_1.selectbox("Format / Aspect", aspect_opts, index=aspect_opts.index(st.session_state.aspect_ratio) if st.session_state.aspect_ratio in aspect_opts else 0)
+        st.session_state.aspect_ratio = vf_1.selectbox("Format / Aspect Ratio", aspect_opts, index=aspect_opts.index(st.session_state.aspect_ratio) if st.session_state.aspect_ratio in aspect_opts else 0)
 
+        theme_opts = [
+            "⚡ Cyberpunk Matrix & Code",
+            "🏙️ Neon City Hyperlapse & Speed",
+            "💻 Modern Creator Desk & Workflow",
+            "📈 Crypto & Financial Stock Charts",
+            "🌌 Cinematic Space & Solar Flare",
+            "🎬 Abstract Kinetic Motion",
+        ]
+        st.session_state.visual_theme = vf_2.selectbox("Master Video Background Theme", theme_opts, index=theme_opts.index(st.session_state.visual_theme) if st.session_state.visual_theme in theme_opts else 0)
+
+        vf_3, vf_4 = st.columns(2)
         pacing_opts = ["⚡ Fast (3s Viral Cuts)", "🎬 Standard (5s Flow)", "📽️ Cinematic (8s Deep Dive)"]
-        st.session_state.video_pacing = vf_2.selectbox("Scene Cut Pacing", pacing_opts, index=pacing_opts.index(st.session_state.video_pacing) if st.session_state.video_pacing in pacing_opts else 0)
+        st.session_state.video_pacing = vf_3.selectbox("Scene Cut Velocity", pacing_opts, index=pacing_opts.index(st.session_state.video_pacing) if st.session_state.video_pacing in pacing_opts else 0)
 
         sub_opts = ["🟡 Hormozi Pop (Gold/Emerald)", "🔴 MrBeast Impact (Bold Red)", "🔵 Cyber Cyan", "⚪ Clean Minimalist"]
-        st.session_state.subtitle_style = vf_3.selectbox("Subtitle Styling", sub_opts, index=sub_opts.index(st.session_state.subtitle_style) if st.session_state.subtitle_style in sub_opts else 0)
+        st.session_state.subtitle_style = vf_4.selectbox("Subtitle Animation Style", sub_opts, index=sub_opts.index(st.session_state.subtitle_style) if st.session_state.subtitle_style in sub_opts else 0)
 
     # 4.5 Live Interactive Video Simulator
     target_clip_sec = 3 if "3s" in st.session_state.video_pacing else 8 if "8s" in st.session_state.video_pacing else 5
     scenes = segment_script_into_scenes(st.session_state.script, target_clip_duration_sec=target_clip_sec)
 
     with st.container(border=True):
-        st.markdown('<div class="eyebrow">04.5 · Live Interactive Video Simulator (With Motion B-Roll)</div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="eyebrow">04.5 · Live Simulator ({st.session_state.visual_theme})</div>', unsafe_allow_html=True)
 
         sim_html = render_live_video_simulator(
             scenes=scenes,
@@ -590,22 +598,21 @@ with right_panel:
 
     # 5. Native In-House MP4 Video Rendering Engine
     with st.container(border=True):
-        st.markdown('<div class="eyebrow">05 · Production Video Render & Export Hub</div>', unsafe_allow_html=True)
-
-        st.session_state.voice_model = st.selectbox("Neural Voiceover (Edge-TTS)", list(AVAILABLE_VOICES.keys()), index=0)
+        st.markdown('<div class="eyebrow">05 · Master Video Render & Loud Audio Export Hub</div>', unsafe_allow_html=True)
 
         render_progress = st.progress(0, text="Ready for instant rendering.")
 
-        if st.button("🎬 RENDER PRODUCTION MP4 VIDEO", type="primary", use_container_width=True):
+        if st.button("🎬 RENDER MASTER PRODUCTION MP4 VIDEO", type="primary", use_container_width=True):
             def on_progress(text: str, pct: float):
                 render_progress.progress(int(pct * 100), text=text)
 
-            with st.spinner("Executing in-house video rendering engine..."):
+            with st.spinner("Synthesizing voice audio & assembling multi-scene master video..."):
                 settings = {
                     "voice_name": st.session_state.voice_model,
                     "voice_rate": 1.0,
                     "video_aspect": st.session_state.aspect_ratio.split()[0],
                     "video_clip_duration": target_clip_sec,
+                    "visual_theme": st.session_state.visual_theme,
                     "video_terms": compile_storyboard_to_broll_terms(scenes),
                 }
                 success, msg, out_path = render_video_pipeline(
@@ -621,11 +628,15 @@ with right_panel:
                     p_str = str(out_path)
                     if p_str.endswith(".mp4"):
                         st.session_state.rendered_video_path = p_str
+                        # Also track the generated mp3
+                        audio_cand = OUTPUTS_DIR / "audio"
+                        if audio_cand.exists():
+                            for mp in audio_cand.glob("*.mp3"):
+                                if mp.stat().st_size > 1000:
+                                    st.session_state.rendered_audio_path = str(mp.resolve())
+                                    break
                     elif p_str.endswith(".mp3"):
                         st.session_state.rendered_audio_path = p_str
-                        srt_cand = p_str.replace("voice_", "subs_").replace(".mp3", ".srt")
-                        if os.path.exists(srt_cand):
-                            st.session_state.rendered_srt_path = srt_cand
 
         if st.session_state.render_message:
             st.success(st.session_state.render_message)
@@ -635,7 +646,7 @@ with right_panel:
         has_audio = st.session_state.rendered_audio_path and os.path.exists(st.session_state.rendered_audio_path)
 
         if has_video:
-            st.markdown("##### 📺 Master Video Player")
+            st.markdown("##### 📺 Master Video Player (With Spoken Voice Audio)")
             st.video(st.session_state.rendered_video_path)
             with open(st.session_state.rendered_video_path, "rb") as vf:
                 st.download_button(
@@ -648,7 +659,7 @@ with right_panel:
                 )
 
         if has_audio or has_video or st.session_state.render_message:
-            st.markdown("##### 📦 Production Assets Ready for Download")
+            st.markdown("##### 🔊 Standalone Audio & Production Assets")
             d_col1, d_col2 = st.columns(2)
 
             if has_audio:
