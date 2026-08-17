@@ -1,21 +1,21 @@
-# Signal Studio × MoneyPrinterTurbo
+# Signal Studio × MoneyPrinter Native
 
-A compact, human-gated YouTube content workflow that turns a niche into a validated MoneyPrinterTurbo generation payload with live AI council deliberation, real-time research grounding, and direct engine dispatch.
+An all-in-one, human-led AI video production workstation with **in-house MP4 rendering**, 3-advisor council deliberation, viral hook A/B testing, live karaoke subtitle simulation, and multi-platform packaging.
 
-## What it includes
+## 🌟 Key Capabilities
 
-- **Creative Brief**: Niche, audience, and editorial-goal input
-- **Live AI & Trend Scoring**: Deterministic demo fixtures alongside live Google Gemini, OpenAI/Ollama, and YouTube Data API v3 trend scoring
-- **3-Advisor Council & Judge**: Multi-perspective ideation (*Story Architect*, *Audience Advocate*, *Skeptical Editor*) with automated executive judge evaluation
-- **Research & Citation Gate**: Live web search citations (zero-key DuckDuckGo or Google Programmable Search) with primary source links
-- **Script Editor**: Duration estimation, word counter, and mandatory personal proof/experience verification
-- **Packaging & Visual Concepts**: High-CTR title alternatives, thumbnail layout prompts, and B-roll search tag generation
-- **Monetization & Reused-Content Risk Audit**: Heuristic analysis with remediation advice to keep channels compliant with YouTube policies
-- **MoneyPrinterTurbo Dispatch**: Validated `VideoParams` contract generation with direct REST API dispatch and one-click JSON payload download
+- **🎬 In-House Video Rendering (`studio/renderer.py`)**: Assemble complete MP4 videos with Microsoft Neural voiceover, B-roll footage, subtitles, and audio mixing directly in the app.
+- **🎙️ Edge-TTS Voice Synthesizer (`studio/voice.py`)**: 100% free neural speech generation (Jenny, Guy, Aria, Sonia, Davis) with speed control and word-by-word subtitle timestamps (zero API keys required).
+- **🎞️ Pexels Stock Media Downloader (`studio/stock_media.py`)**: Automatic HD stock clip search, download, and local caching.
+- **📱 Live Video & Subtitle Simulator (`studio/simulator.py`)**: Real-time HTML5 video canvas with dynamic karaoke word highlighting for instant pre-render visualization.
+- **🧪 Viral Hook A/B Lab (`studio/hooks.py`)**: 5 psychological hook archetypes with predicted **3-Second Hold Rate %** and 1-click script insertion.
+- **📽️ Scene Storyboard Timeline (`studio/storyboard.py`)**: 5-second scene breakdown with targeted visual search queries and camera motions.
+- **🎨 Vector SVG Thumbnail Canvas (`studio/thumbnails.py`)**: Scalable, high-contrast SVG thumbnail mockups with glow effects, 4 color themes, and AI image prompts.
+- **📈 Script Retention Science (`studio/retention.py`)**: Sentence-by-sentence pacing map, AI cliché scanner, and 4 creator tone presets (*Hormozi*, *Veritasium*, *Shorts*, *Balanced*).
+- **📦 Multi-Platform Social SEO (`studio/social.py`)**: Auto-generated YouTube chapters/timestamps, citations, X/Twitter threads, and LinkedIn posts.
+- **🗂️ Project Library Manager (`studio/storage.py`)**: Save, load, and manage draft projects locally.
 
-The studio operates with **zero-key demo fallbacks by default**, so it runs instantly without mandatory API keys. Add your keys in the sidebar drawer or via environment variables to enable live AI deliberation and search.
-
-## Run locally
+## Run Locally
 
 ```bash
 python -m venv .venv
@@ -26,16 +26,14 @@ streamlit run studio_app.py
 
 On macOS/Linux, activate with `source .venv/bin/activate`.
 
-## Environment Variables (Optional)
+## Optional Environment Variables
 
-You can pre-configure API keys via environment variables:
-- `GEMINI_API_KEY`: For Google Gemini 2.5 / 1.5 models
+- `GEMINI_API_KEY`: For Google Gemini 2.5 / 1.5 live AI council
 - `OPENAI_API_KEY`: For OpenAI GPT-4o / GPT-4o-mini
-- `YOUTUBE_API_KEY`: For YouTube Data API v3 trend analysis
+- `PEXELS_API_KEY`: For live Pexels HD video search (uses curated offline stock cache if omitted)
+- `YOUTUBE_API_KEY`: For YouTube Data API v3 trend metrics
 - `GOOGLE_SEARCH_API_KEY` & `GOOGLE_SEARCH_CX`: For Google Programmable Search
 
-## Architecture
+## Upstream Integration
 
-The studio is an editorial orchestration and safety layer. It produces a payload matching MoneyPrinterTurbo Extended's `VideoParams` contract, while video rendering remains in the upstream engine.
-
-Upstream project: https://github.com/Asad-Ismail/MoneyPrinterTurbo-Extended
+While Signal Studio can render standalone MP4s natively, it also produces validated `VideoParams` payloads for upstream [MoneyPrinterTurbo-Extended](https://github.com/Asad-Ismail/MoneyPrinterTurbo-Extended).

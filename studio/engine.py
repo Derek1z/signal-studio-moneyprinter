@@ -11,11 +11,17 @@ from pathlib import Path
 from typing import Any
 
 from studio.ai_providers import BaseLLMProvider, DemoLLMProvider, get_llm_provider
+from studio.hooks import generate_hook_variations, replace_script_hook
 from studio.live_data import YouTubeTrendProvider, get_research_pack
+from studio.renderer import render_video_pipeline
 from studio.retention import analyze_retention
+from studio.simulator import render_live_video_simulator
 from studio.social import generate_social_package, generate_youtube_chapters
+from studio.stock_media import get_clips_for_scenes
 from studio.storage import delete_project_draft, list_saved_projects, load_project_draft, save_project_draft
+from studio.storyboard import compile_storyboard_to_broll_terms, segment_script_into_scenes
 from studio.thumbnails import generate_ai_image_prompt, generate_thumbnail_svg
+from studio.voice import AVAILABLE_VOICES, synthesize_speech
 
 logger = logging.getLogger(__name__)
 
@@ -254,7 +260,7 @@ def save_handoff(output_dir: Path, project: Project, payload: dict[str, Any]) ->
     timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
     path = output_dir / f"{slug}_{timestamp}_handoff.json"
     full_export = {
-        "studio_version": "2.2.0",
+        "studio_version": "2.5.0",
         "project": asdict(project),
         "moneyprinter_payload": payload,
     }
