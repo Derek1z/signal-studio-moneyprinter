@@ -12,35 +12,28 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# Curated royalty-free sample stock videos for instant zero-key rendering
+# Reliable royalty-free open-access sample stock video clips
 FALLBACK_STOCK_CLIPS = [
     {
         "id": "clip_desk_01",
-        "title": "Creator Desk Workspace",
-        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4",
+        "title": "Creator Workspace Flow",
+        "url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
         "preview": "https://images.pexels.com/photos/3182773/pexels-photo-3182773.jpeg?auto=compress&cs=tinysrgb&w=600",
         "keywords": ["creator", "desk", "laptop", "typing", "editing", "workspace"],
     },
     {
         "id": "clip_tech_02",
-        "title": "Abstract Data Flow",
-        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4",
+        "title": "Abstract Data Tech",
+        "url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
         "preview": "https://images.pexels.com/photos/1181675/pexels-photo-1181675.jpeg?auto=compress&cs=tinysrgb&w=600",
         "keywords": ["data", "analytics", "dashboard", "ai", "technology", "diagram"],
     },
     {
         "id": "clip_focus_03",
         "title": "Deep Work Focus",
-        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4",
+        "url": "https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4",
         "preview": "https://images.pexels.com/photos/3861969/pexels-photo-3861969.jpeg?auto=compress&cs=tinysrgb&w=600",
         "keywords": ["focus", "study", "research", "screen", "workflow", "checklist"],
-    },
-    {
-        "id": "clip_success_04",
-        "title": "Creative Achievement",
-        "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyBlazes.mp4",
-        "preview": "https://images.pexels.com/photos/3184291/pexels-photo-3184291.jpeg?auto=compress&cs=tinysrgb&w=600",
-        "keywords": ["success", "growth", "results", "leverage", "happy", "creator"],
     },
 ]
 
@@ -57,14 +50,13 @@ def search_pexels_videos(
         return []
 
     url = f"https://api.pexels.com/videos/search?query={urllib.parse.quote(query)}&per_page={per_page}&orientation={orientation}"
-    req = urllib.request.Request(url, headers={"Authorization": clean_key, "User-Agent": "SignalStudio/2.2"})
+    req = urllib.request.Request(url, headers={"Authorization": clean_key, "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
 
     try:
         with urllib.request.urlopen(req, timeout=10) as resp:
             data = json.loads(resp.read().decode("utf-8"))
             results = []
             for video in data.get("videos", []):
-                # Pick HD file (width approx 1920 or 1080)
                 video_files = video.get("video_files", [])
                 hd_file = None
                 for vf in video_files:
@@ -89,22 +81,22 @@ def search_pexels_videos(
 
 
 def download_video_clip(video_url: str, output_path: Path) -> bool:
-    """Download video clip to local disk cache."""
-    if output_path.exists() and output_path.stat().st_size > 100_000:
+    """Download video clip to local disk cache with browser headers."""
+    if output_path.exists() and output_path.stat().st_size > 10_000:
         return True
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     req = urllib.request.Request(
         video_url,
-        headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"},
+        headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"},
     )
     try:
-        with urllib.request.urlopen(req, timeout=25) as response, open(output_path, "wb") as f:
+        with urllib.request.urlopen(req, timeout=20) as response, open(output_path, "wb") as f:
             while chunk := response.read(64 * 1024):
                 f.write(chunk)
         return True
     except Exception as e:
-        logger.warning(f"Failed to download clip '{video_url}': {e}")
+        logger.warning(f"Clip download failed for '{video_url}': {e}")
         return False
 
 
@@ -125,20 +117,17 @@ def get_clips_for_scenes(
         query = sc.get("broll_query", "creator desk")
         clip_info = None
 
-        # Try live Pexels API if key supplied
         if pexels_api_key.strip():
             live_clips = search_pexels_videos(query, api_key=pexels_api_key, orientation=orientation, per_page=1)
             if live_clips:
                 clip_info = live_clips[0]
 
-        # Fallback to curated library
         if not clip_info:
             clip_info = FALLBACK_STOCK_CLIPS[idx % len(FALLBACK_STOCK_CLIPS)]
 
         slug = re.sub(r"[^a-z0-9]+", "_", query.lower())[:24] or f"scene_{idx+1}"
         clip_file = out_cache / f"{slug}_{clip_info['id']}.mp4"
 
-        # Download or verify presence
         download_video_clip(clip_info["url"], clip_file)
 
         matched_scenes.append({
@@ -147,7 +136,7 @@ def get_clips_for_scenes(
             "clip_title": clip_info.get("title", f"Scene {idx+1} B-Roll"),
             "clip_url": clip_info["url"],
             "clip_preview": clip_info.get("preview", ""),
-            "clip_local_path": str(clip_file) if clip_file.exists() else "",
+            "clip_local_path": str(clip_file) if clip_file.exists() and clip_file.stat().st_size > 10_000 else "",
         })
 
     return matched_scenes
