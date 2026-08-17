@@ -12,7 +12,7 @@ def render_live_video_simulator(
     subtitle_style: str = "hormozi",
     audio_url: str = "",
 ) -> str:
-    """Generate an interactive HTML5/JavaScript player with synchronized animated karaoke subtitles."""
+    """Generate an interactive HTML5/JavaScript player with synchronized animated karaoke subtitles and real background video clips."""
     is_vertical = "9:16" in aspect_ratio
     is_square = "1:1" in aspect_ratio
 
@@ -37,12 +37,11 @@ def render_live_video_simulator(
 
     clean_title = html.escape(title or "Signal Studio Video Preview")
 
-    # Subtitle Style Color Palettes
     style_key = (subtitle_style or "hormozi").lower()
     if "mrbeast" in style_key:
-        active_color = "#ef4444"
-        active_bg = "#ffffff"
-        active_glow = "rgba(239, 68, 68, 0.8)"
+        active_color = "#ffffff"
+        active_bg = "#dc2626"
+        active_glow = "rgba(220, 38, 38, 0.8)"
     elif "cyber" in style_key:
         active_color = "#030712"
         active_bg = "#06b6d4"
@@ -52,7 +51,6 @@ def render_live_video_simulator(
         active_bg = "#ffffff"
         active_glow = "rgba(255, 255, 255, 0.4)"
     else:
-        # Hormozi Pop Default (Gold/Neon Green)
         active_color = "#04100c"
         active_bg = "#10b981"
         active_glow = "rgba(16, 185, 129, 0.8)"
@@ -148,29 +146,39 @@ body {{ background: transparent; font-family: 'Plus Jakarta Sans', sans-serif; d
   justify-content: space-between;
 }}
 
-.bg-canvas {{
+/* Real Background Video Player with Ambient Overlay */
+.bg-video {{
   position: absolute;
   top: 0; left: 0; width: 100%; height: 100%;
-  background: radial-gradient(circle at 60% 40%, #064e3b 0%, #022c22 45%, #050b14 100%);
-  transition: all 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+  object-fit: cover;
   z-index: 1;
+  opacity: 0.65;
+  filter: saturate(1.2) contrast(1.1);
+  transition: opacity 0.4s ease;
+}}
+
+.bg-overlay {{
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: linear-gradient(180deg, rgba(6,9,17,0.4) 0%, rgba(6,9,17,0.1) 40%, rgba(6,9,17,0.75) 100%);
+  z-index: 2;
 }}
 
 .glow-orb {{
   position: absolute;
-  width: 280px; height: 280px;
+  width: 260px; height: 260px;
   border-radius: 50%;
   background: {active_bg};
   filter: blur(95px);
-  opacity: 0.18;
+  opacity: 0.22;
   top: 20%; right: 10%;
   animation: pulse 4s infinite alternate ease-in-out;
   z-index: 2;
 }}
 
 @keyframes pulse {{
-  0% {{ transform: scale(0.9) translate(0, 0); opacity: 0.14; }}
-  100% {{ transform: scale(1.2) translate(-20px, 20px); opacity: 0.28; }}
+  0% {{ transform: scale(0.9) translate(0, 0); opacity: 0.16; }}
+  100% {{ transform: scale(1.2) translate(-20px, 20px); opacity: 0.32; }}
 }}
 
 .equalizer-bar-container {{
@@ -182,7 +190,7 @@ body {{ background: transparent; font-family: 'Plus Jakarta Sans', sans-serif; d
   gap: 3px;
   height: 22px;
   z-index: 5;
-  opacity: 0.5;
+  opacity: 0.6;
 }}
 
 .eq-bar {{
@@ -212,10 +220,10 @@ body {{ background: transparent; font-family: 'Plus Jakarta Sans', sans-serif; d
 }}
 
 .brand-pill {{
-  background: rgba(15, 23, 42, 0.75);
+  background: rgba(15, 23, 42, 0.8);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  padding: 3px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  padding: 3px 10px;
   border-radius: 99px;
   font-size: 10px;
   font-weight: 800;
@@ -225,9 +233,9 @@ body {{ background: transparent; font-family: 'Plus Jakarta Sans', sans-serif; d
 }}
 
 .scene-pill {{
-  background: rgba(15, 23, 42, 0.75);
+  background: rgba(15, 23, 42, 0.8);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   padding: 3px 10px;
   border-radius: 99px;
   font-size: 10px;
@@ -254,7 +262,7 @@ body {{ background: transparent; font-family: 'Plus Jakarta Sans', sans-serif; d
   line-height: 1.2;
   color: #ffffff;
   text-transform: uppercase;
-  text-shadow: 0 4px 18px rgba(0,0,0,0.9), 0 0 4px #000;
+  text-shadow: 0 4px 18px rgba(0,0,0,0.95), 0 0 4px #000;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
@@ -271,7 +279,7 @@ body {{ background: transparent; font-family: 'Plus Jakarta Sans', sans-serif; d
 .k-word.active {{
   color: {active_color};
   background: {active_bg};
-  transform: scale(1.15) translateY(-2px);
+  transform: scale(1.16) translateY(-2px);
   box-shadow: 0 0 25px {active_glow};
   text-shadow: none;
 }}
@@ -279,13 +287,13 @@ body {{ background: transparent; font-family: 'Plus Jakarta Sans', sans-serif; d
 .broll-hint {{
   margin-top: 12px;
   font-size: 11px;
-  font-weight: 600;
-  color: #94a3b8;
-  background: rgba(15, 23, 42, 0.7);
+  font-weight: 700;
+  color: #e2e8f0;
+  background: rgba(15, 23, 42, 0.85);
   backdrop-filter: blur(8px);
-  padding: 3px 10px;
+  padding: 4px 12px;
   border-radius: 99px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   max-width: 90%;
   white-space: nowrap;
   overflow: hidden;
@@ -295,16 +303,16 @@ body {{ background: transparent; font-family: 'Plus Jakarta Sans', sans-serif; d
 .bottom-bar {{
   position: relative;
   z-index: 10;
-  background: rgba(9, 13, 22, 0.9);
+  background: rgba(9, 13, 22, 0.92);
   backdrop-filter: blur(16px);
   padding: 10px 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
 }}
 
 .progress-track {{
   width: 100%;
   height: 5px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.15);
   border-radius: 3px;
   cursor: pointer;
   position: relative;
@@ -358,7 +366,10 @@ body {{ background: transparent; font-family: 'Plus Jakarta Sans', sans-serif; d
 <div class="player-wrapper">
   {notch_html}
   <div class="viewport" id="viewport">
-    <div class="bg-canvas" id="bgCanvas"></div>
+    <video class="bg-video" id="bgVideo" autoplay loop muted playsinline>
+      <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4" type="video/mp4">
+    </video>
+    <div class="bg-overlay"></div>
     <div class="glow-orb"></div>
 
     <div class="equalizer-bar-container">
@@ -405,6 +416,7 @@ let isPlaying = false;
 let currentTime = 0;
 let lastTimestamp = null;
 let animationFrameId = null;
+let currentSceneIdx = -1;
 
 const playBtn = document.getElementById('playBtn');
 const progressFill = document.getElementById('progressFill');
@@ -413,14 +425,15 @@ const timeDisplay = document.getElementById('timeDisplay');
 const sceneBadge = document.getElementById('sceneBadge');
 const karaokeBox = document.getElementById('karaokeBox');
 const brollHint = document.getElementById('brollHint');
-const bgCanvas = document.getElementById('bgCanvas');
+const bgVideo = document.getElementById('bgVideo');
 
-const bgGradients = [
-  'radial-gradient(circle at 60% 40%, #064e3b 0%, #022c22 45%, #050b14 100%)',
-  'radial-gradient(circle at 30% 70%, #0f766e 0%, #115e59 45%, #050b14 100%)',
-  'radial-gradient(circle at 70% 30%, #1e3a8a 0%, #172554 45%, #050b14 100%)',
-  'radial-gradient(circle at 50% 50%, #701a75 0%, #4a044e 45%, #050b14 100%)',
-  'radial-gradient(circle at 80% 20%, #9a3412 0%, #431407 45%, #050b14 100%)'
+const videoClips = [
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyBlazes.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
+  'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4'
 ];
 
 function formatTime(s) {{
@@ -442,11 +455,18 @@ function updateDisplay() {{
     }}
   }}
 
-  if (currentScene) {{
+  if (currentScene && currentScene.scene_idx !== currentSceneIdx) {{
+    currentSceneIdx = currentScene.scene_idx;
     sceneBadge.innerText = `SCENE ${{currentScene.scene_idx.toString().padStart(2, '0')}} / ${{scenes.length.toString().padStart(2, '0')}}`;
     brollHint.innerText = `🎬 Visual: ${{currentScene.visual_concept || currentScene.broll_query || ''}}`;
-    const gradIdx = (currentScene.scene_idx - 1) % bgGradients.length;
-    bgCanvas.style.background = bgGradients[gradIdx];
+    
+    // Switch background video on scene change
+    const clipIdx = (currentScene.scene_idx - 1) % videoClips.length;
+    const newSrc = currentScene.clip_url || videoClips[clipIdx];
+    if (bgVideo.currentSrc !== newSrc) {{
+      bgVideo.src = newSrc;
+      bgVideo.play().catch(e => console.log('Video play policy: ', e));
+    }}
   }}
 
   const activeWord = events.find(e => currentTime >= e.start && currentTime <= e.end);
@@ -481,9 +501,11 @@ playBtn.addEventListener('click', () => {{
   if (isPlaying) {{
     playBtn.innerText = '❚❚ PAUSE';
     lastTimestamp = null;
+    bgVideo.play().catch(e => {{}});
     animationFrameId = requestAnimationFrame(step);
   }} else {{
     playBtn.innerText = '▶ RESUME';
+    bgVideo.pause();
     cancelAnimationFrame(animationFrameId);
   }}
 }});
