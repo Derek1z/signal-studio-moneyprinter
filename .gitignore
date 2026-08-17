@@ -1,5 +1,12 @@
 .venv/
+venv/
 __pycache__/
 .pytest_cache/
 studio_outputs/
-
+.env
+.env.*
+.streamlit/secrets.toml
+*.key
+*.pem
+.DS_Store
+Thumbs.db
