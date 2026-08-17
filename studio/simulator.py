@@ -9,15 +9,53 @@ def render_live_video_simulator(
     scenes: list[dict[str, Any]],
     title: str = "Video Preview",
     aspect_ratio: str = "16:9",
+    subtitle_style: str = "hormozi",
     audio_url: str = "",
 ) -> str:
     """Generate an interactive HTML5/JavaScript player with synchronized animated karaoke subtitles."""
     is_vertical = "9:16" in aspect_ratio
-    width_css = "340px" if is_vertical else "100%"
-    aspect_css = "9 / 16" if is_vertical else "16 / 9"
-    max_height_css = "600px" if is_vertical else "440px"
+    is_square = "1:1" in aspect_ratio
+
+    if is_vertical:
+        width_css = "320px"
+        aspect_css = "9 / 16"
+        max_height_css = "560px"
+        phone_border_css = "border: 8px solid #1e293b; border-radius: 36px; box-shadow: 0 25px 60px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.1);"
+        notch_html = '<div class="phone-notch"><div class="speaker"></div><div class="camera"></div></div>'
+    elif is_square:
+        width_css = "440px"
+        aspect_css = "1 / 1"
+        max_height_css = "440px"
+        phone_border_css = "border: 1px solid rgba(255,255,255,0.15); border-radius: 18px;"
+        notch_html = ""
+    else:
+        width_css = "100%"
+        aspect_css = "16 / 9"
+        max_height_css = "440px"
+        phone_border_css = "border: 1px solid rgba(255,255,255,0.15); border-radius: 18px;"
+        notch_html = ""
 
     clean_title = html.escape(title or "Signal Studio Video Preview")
+
+    # Subtitle Style Color Palettes
+    style_key = (subtitle_style or "hormozi").lower()
+    if "mrbeast" in style_key:
+        active_color = "#ef4444"
+        active_bg = "#ffffff"
+        active_glow = "rgba(239, 68, 68, 0.8)"
+    elif "cyber" in style_key:
+        active_color = "#030712"
+        active_bg = "#06b6d4"
+        active_glow = "rgba(6, 182, 212, 0.8)"
+    elif "minimal" in style_key:
+        active_color = "#000000"
+        active_bg = "#ffffff"
+        active_glow = "rgba(255, 255, 255, 0.4)"
+    else:
+        # Hormozi Pop Default (Gold/Neon Green)
+        active_color = "#04100c"
+        active_bg = "#10b981"
+        active_glow = "rgba(16, 185, 129, 0.8)"
 
     subtitle_events = []
     total_duration = 0.0
@@ -53,19 +91,49 @@ def render_live_video_simulator(
 <head>
 <meta charset="utf-8">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800;900&family=Outfit:wght@700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@700;800;900&family=Outfit:wght@800;900&display=swap');
 
 * {{ box-sizing: border-box; margin: 0; padding: 0; user-select: none; }}
-body {{ background: transparent; font-family: 'Plus Jakarta Sans', sans-serif; display: flex; justify-content: center; align-items: center; padding: 4px; }}
+body {{ background: transparent; font-family: 'Plus Jakarta Sans', sans-serif; display: flex; justify-content: center; align-items: center; padding: 6px; }}
 
 .player-wrapper {{
   width: {width_css};
   max-width: 820px;
   background: #090d16;
-  border-radius: 18px;
   overflow: hidden;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  {phone_border_css}
   position: relative;
+}}
+
+.phone-notch {{
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 90px;
+  height: 18px;
+  background: #1e293b;
+  border-radius: 0 0 12px 12px;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}}
+
+.phone-notch .speaker {{
+  width: 32px;
+  height: 4px;
+  background: #334155;
+  border-radius: 2px;
+}}
+
+.phone-notch .camera {{
+  width: 6px;
+  height: 6px;
+  background: #0f172a;
+  border-radius: 50%;
+  border: 1px solid #334155;
 }}
 
 .viewport {{
@@ -74,13 +142,12 @@ body {{ background: transparent; font-family: 'Plus Jakarta Sans', sans-serif; d
   max-height: {max_height_css};
   position: relative;
   overflow: hidden;
-  background: #0b101b;
+  background: #060911;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
 }}
 
-/* Dynamic Ambient Video Canvas */
 .bg-canvas {{
   position: absolute;
   top: 0; left: 0; width: 100%; height: 100%;
@@ -91,37 +158,36 @@ body {{ background: transparent; font-family: 'Plus Jakarta Sans', sans-serif; d
 
 .glow-orb {{
   position: absolute;
-  width: 320px; height: 320px;
+  width: 280px; height: 280px;
   border-radius: 50%;
-  background: #10b981;
-  filter: blur(100px);
-  opacity: 0.20;
-  top: 15%; right: 5%;
+  background: {active_bg};
+  filter: blur(95px);
+  opacity: 0.18;
+  top: 20%; right: 10%;
   animation: pulse 4s infinite alternate ease-in-out;
   z-index: 2;
 }}
 
 @keyframes pulse {{
-  0% {{ transform: scale(0.9) translate(0, 0); opacity: 0.15; }}
-  100% {{ transform: scale(1.2) translate(-25px, 25px); opacity: 0.30; }}
+  0% {{ transform: scale(0.9) translate(0, 0); opacity: 0.14; }}
+  100% {{ transform: scale(1.2) translate(-20px, 20px); opacity: 0.28; }}
 }}
 
-/* Equalizer Visualizer Overlay */
 .equalizer-bar-container {{
   position: absolute;
   bottom: 60px;
-  left: 20px;
+  left: 18px;
   display: flex;
   align-items: flex-end;
   gap: 3px;
-  height: 24px;
+  height: 22px;
   z-index: 5;
-  opacity: 0.4;
+  opacity: 0.5;
 }}
 
 .eq-bar {{
   width: 3px;
-  background: #10b981;
+  background: {active_bg};
   border-radius: 2px;
   animation: eqPulse 1.2s infinite ease-in-out alternate;
 }}
@@ -136,58 +202,43 @@ body {{ background: transparent; font-family: 'Plus Jakarta Sans', sans-serif; d
   100% {{ height: 95%; }}
 }}
 
-/* Top Overlay Badges */
 .top-bar {{
   position: relative;
   z-index: 10;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 14px 18px;
+  padding: {"24px 16px 10px" if is_vertical else "14px 18px"};
 }}
 
 .brand-pill {{
   background: rgba(15, 23, 42, 0.75);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(16, 185, 129, 0.4);
-  padding: 4px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  padding: 3px 9px;
   border-radius: 99px;
   font-size: 10px;
   font-weight: 800;
-  color: #10b981;
+  color: {active_bg};
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}}
-
-.brand-pill::before {{
-  content: "";
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #10b981;
-  box-shadow: 0 0 8px #10b981;
 }}
 
 .scene-pill {{
   background: rgba(15, 23, 42, 0.75);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 4px 12px;
+  padding: 3px 10px;
   border-radius: 99px;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   color: #f8fafc;
 }}
 
-/* Center Subtitle Karaoke Stage */
 .subtitle-stage {{
   position: relative;
   z-index: 10;
-  padding: 16px 20px;
+  padding: 16px 18px;
   text-align: center;
   display: flex;
   flex-direction: column;
@@ -199,51 +250,54 @@ body {{ background: transparent; font-family: 'Plus Jakarta Sans', sans-serif; d
 .karaoke-text {{
   font-family: 'Outfit', 'Plus Jakarta Sans', sans-serif;
   font-weight: 900;
-  font-size: {"26px" if is_vertical else "34px"};
-  line-height: 1.18;
-  color: #f8fafc;
+  font-size: {"22px" if is_vertical else "30px"};
+  line-height: 1.2;
+  color: #ffffff;
   text-transform: uppercase;
-  text-shadow: 0 4px 20px rgba(0,0,0,0.9), 0 0 4px #000;
+  text-shadow: 0 4px 18px rgba(0,0,0,0.9), 0 0 4px #000;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
 }}
 
 .k-word {{
   display: inline-block;
   padding: 2px 6px;
   border-radius: 6px;
-  transition: all 0.14s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: all 0.12s cubic-bezier(0.34, 1.56, 0.64, 1);
 }}
 
 .k-word.active {{
-  color: #04100c;
-  background: #10b981;
-  transform: scale(1.16) translateY(-2px);
-  box-shadow: 0 0 25px rgba(16, 185, 129, 0.7);
+  color: {active_color};
+  background: {active_bg};
+  transform: scale(1.15) translateY(-2px);
+  box-shadow: 0 0 25px {active_glow};
   text-shadow: none;
 }}
 
 .broll-hint {{
-  margin-top: 14px;
+  margin-top: 12px;
   font-size: 11px;
   font-weight: 600;
   color: #94a3b8;
-  background: rgba(15, 23, 42, 0.65);
+  background: rgba(15, 23, 42, 0.7);
   backdrop-filter: blur(8px);
-  padding: 4px 12px;
+  padding: 3px 10px;
   border-radius: 99px;
   border: 1px solid rgba(255, 255, 255, 0.08);
+  max-width: 90%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }}
 
-/* Bottom Controller Bar */
 .bottom-bar {{
   position: relative;
   z-index: 10;
-  background: rgba(11, 16, 27, 0.88);
+  background: rgba(9, 13, 22, 0.9);
   backdrop-filter: blur(16px);
-  padding: 12px 18px;
+  padding: 10px 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }}
 
@@ -254,14 +308,14 @@ body {{ background: transparent; font-family: 'Plus Jakarta Sans', sans-serif; d
   border-radius: 3px;
   cursor: pointer;
   position: relative;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   overflow: hidden;
 }}
 
 .progress-fill {{
   height: 100%;
   width: 0%;
-  background: linear-gradient(90deg, #10b981, #34d399);
+  background: {active_bg};
   border-radius: 3px;
   transition: width 0.04s linear;
 }}
@@ -273,23 +327,22 @@ body {{ background: transparent; font-family: 'Plus Jakarta Sans', sans-serif; d
 }}
 
 .btn-play {{
-  background: #10b981;
+  background: {active_bg};
   border: none;
-  color: #04100c;
+  color: {active_color};
   font-weight: 800;
-  font-size: 12px;
+  font-size: 11px;
   letter-spacing: 0.04em;
-  padding: 6px 16px;
+  padding: 6px 14px;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.15s ease;
-  box-shadow: 0 0 15px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 0 15px {active_glow};
 }}
 
 .btn-play:hover {{
-  background: #34d399;
+  filter: brightness(1.15);
   transform: scale(1.04);
-  box-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
 }}
 
 .time-display {{
@@ -303,6 +356,7 @@ body {{ background: transparent; font-family: 'Plus Jakarta Sans', sans-serif; d
 <body>
 
 <div class="player-wrapper">
+  {notch_html}
   <div class="viewport" id="viewport">
     <div class="bg-canvas" id="bgCanvas"></div>
     <div class="glow-orb"></div>
@@ -316,7 +370,7 @@ body {{ background: transparent; font-family: 'Plus Jakarta Sans', sans-serif; d
     </div>
 
     <div class="top-bar">
-      <div class="brand-pill">SIMULATOR ENGINE</div>
+      <div class="brand-pill">{aspect_ratio} FORMAT</div>
       <div class="scene-pill" id="sceneBadge">SCENE 01 / {len(scenes):02d}</div>
     </div>
 
@@ -365,7 +419,8 @@ const bgGradients = [
   'radial-gradient(circle at 60% 40%, #064e3b 0%, #022c22 45%, #050b14 100%)',
   'radial-gradient(circle at 30% 70%, #0f766e 0%, #115e59 45%, #050b14 100%)',
   'radial-gradient(circle at 70% 30%, #1e3a8a 0%, #172554 45%, #050b14 100%)',
-  'radial-gradient(circle at 50% 50%, #701a75 0%, #4a044e 45%, #050b14 100%)'
+  'radial-gradient(circle at 50% 50%, #701a75 0%, #4a044e 45%, #050b14 100%)',
+  'radial-gradient(circle at 80% 20%, #9a3412 0%, #431407 45%, #050b14 100%)'
 ];
 
 function formatTime(s) {{

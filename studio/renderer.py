@@ -95,7 +95,7 @@ def render_video_pipeline(
     pexels_api_key: str = "",
     progress_callback: ProgressCallback | None = None,
 ) -> tuple[bool, str, Path | None]:
-    """Execute complete in-house video generation: TTS + B-Roll + Subtitles + MP4 Rendering."""
+    """Execute complete in-house video generation: TTS + Multi-Scene B-Roll + Subtitles + MP4 Rendering."""
     abs_out_dir = Path(output_dir).resolve()
     abs_out_dir.mkdir(parents=True, exist_ok=True)
     slug = re.sub(r"[^a-z0-9]+", "_", topic.lower()).strip("_")[:32] or "studio_video"
@@ -118,14 +118,14 @@ def render_video_pipeline(
     srt_path = voice_res.get("srt_path")
     audio_duration = max(5.0, float(voice_res.get("duration", 10.0)))
 
-    # 2. Segment Storyboard & Scenes
-    report("🎞️ Step 2/4: Segmenting Scene Storyboard & B-Roll Timing...", 0.45)
+    # 2. Segment Storyboard & Scenes with customizable pacing
+    report("🎞️ Step 2/4: Segmenting Scene Storyboard & Multi-Clip Pacing...", 0.45)
     aspect_ratio = settings.get("video_aspect", "16:9")
     clip_dur = int(settings.get("video_clip_duration", 5))
     scenes = segment_script_into_scenes(script, target_clip_duration_sec=clip_dur)
 
     # 3. Acquire B-Roll Video Clips
-    report("📥 Step 3/4: Downloading & Caching Stock Video Clips...", 0.70)
+    report("📥 Step 3/4: Downloading & Caching Stock Video Clips for Each Scene...", 0.70)
     matched_scenes = get_clips_for_scenes(
         scenes=scenes,
         pexels_api_key=pexels_api_key,
@@ -134,7 +134,7 @@ def render_video_pipeline(
     )
 
     # 4. Video Assembly / Rendering
-    report("🎬 Step 4/4: Stitching Video, Audio & Subtitles into MP4...", 0.90)
+    report("🎬 Step 4/4: Stitching Multi-Scene Video, Audio & Subtitles into MP4...", 0.90)
 
     rendered = False
     render_note = ""
@@ -148,7 +148,6 @@ def render_video_pipeline(
                 if local_p and os.path.exists(local_p) and os.path.getsize(local_p) > 10_000:
                     valid_clips.append(str(Path(local_p).resolve()))
 
-            # Check parent stock_cache as well
             if not valid_clips:
                 for c_dir in [abs_out_dir / "stock_cache", abs_out_dir.parent / "stock_cache", Path(__file__).parent.parent / "studio_outputs" / "stock_cache"]:
                     if c_dir.exists():
@@ -156,12 +155,18 @@ def render_video_pipeline(
                             if f.stat().st_size > 10_000 and "final" not in f.name:
                                 valid_clips.append(str(f.resolve()))
 
-            vf_filter = "scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720"
+            # Determine filter for 16:9, 9:16 (Shorts), or 1:1 (Square)
             if "9:16" in aspect_ratio:
-                vf_filter = "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280"
+                vf_filter = "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280,setsar=1"
+                res_w, res_h = 720, 1280
+            elif "1:1" in aspect_ratio:
+                vf_filter = "scale=1080:1080:force_original_aspect_ratio=increase,crop=1080:1080,setsar=1"
+                res_w, res_h = 1080, 1080
+            else:
+                vf_filter = "scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,setsar=1"
+                res_w, res_h = 1280, 720
 
             if valid_clips:
-                # Concat stock video clips with ABSOLUTE paths
                 concat_txt = abs_out_dir / f"concat_{slug}.txt"
                 lines = [f"file '{Path(c).resolve().as_posix()}'" for c in valid_clips]
                 while len(lines) < max(len(scenes), 8):
@@ -174,11 +179,10 @@ def render_video_pipeline(
                     "-i", str(concat_txt.resolve().as_posix()),
                 ]
             else:
-                # Fallback: Generate dynamic emerald studio video background via FFmpeg lavfi
                 cmd = [
                     ffmpeg_bin, "-y",
                     "-f", "lavfi",
-                    "-i", f"color=c=0x133e2e:s={'720x1280' if '9:16' in aspect_ratio else '1280x720'}:r=24:d={int(audio_duration) + 1}",
+                    "-i", f"color=c=0x0a1420:s={res_w}x{res_h}:r=24:d={int(audio_duration) + 1}",
                 ]
 
             if mp3_path and os.path.exists(mp3_path) and os.path.getsize(mp3_path) > 100:
@@ -202,7 +206,7 @@ def render_video_pipeline(
             res = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             if final_mp4.exists() and final_mp4.stat().st_size > 10_000:
                 rendered = True
-                render_note = "Assembled via Native FFmpeg Video Engine"
+                render_note = f"Assembled via Native FFmpeg Video Engine ({aspect_ratio})"
             else:
                 logger.warning(f"FFmpeg stdout/err: {res.stderr}")
         except Exception as exc:
@@ -212,6 +216,6 @@ def render_video_pipeline(
     report("✨ Complete! Video is ready for playback & download.", 1.0)
 
     if rendered and final_mp4.exists():
-        return True, f"🎉 MP4 Video Rendered Successfully! ({render_note})", final_mp4
+        return True, f"🎉 {aspect_ratio} MP4 Video Rendered Successfully! ({render_note})", final_mp4
 
     return True, "🎙️ Audio voiceover and subtitles compiled!", Path(mp3_path) if mp3_path and os.path.exists(mp3_path) else None

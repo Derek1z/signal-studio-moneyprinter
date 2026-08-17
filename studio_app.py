@@ -41,7 +41,7 @@ OUTPUTS_DIR = Path(__file__).parent / "studio_outputs"
 OUTPUTS_DIR.mkdir(parents=True, exist_ok=True)
 
 # ---------------------------------------------------------
-# Secure Key Resolver (Secrets -> Env -> Fallback)
+# Secure Key Resolver
 # ---------------------------------------------------------
 def get_secure_key(name: str) -> str:
     """Retrieve sensitive API credentials safely from Streamlit secrets or OS environment."""
@@ -53,29 +53,26 @@ AUTO_GEMINI_KEY = get_secure_key("GEMINI_API_KEY") or get_secure_key("GOOGLE_API
 AUTO_YT_KEY = get_secure_key("YOUTUBE_API_KEY") or AUTO_GEMINI_KEY
 
 # ---------------------------------------------------------
-# High-End Obsidian Creator Studio Design System
+# High-Contrast Obsidian Studio Design System
 # ---------------------------------------------------------
 st.markdown("""<style>
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,700&family=Outfit:wght@600;700;800;900&family=Space+Grotesk:wght@600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Outfit:wght@600;700;800;900&family=Space+Grotesk:wght@600;700&display=swap');
 
 :root {
-  --bg-deep: #060911;
-  --bg-card: #0d1322;
-  --bg-card-hover: #131b2e;
-  --bg-glass: rgba(13, 19, 34, 0.75);
-  --border-subtle: #1e293b;
-  --border-glow: rgba(16, 185, 129, 0.35);
-  --text-primary: #f8fafc;
+  --bg-deep: #080d1a;
+  --bg-card: #0f172a;
+  --bg-card-subtle: #1e293b;
+  --border-card: #334155;
+  --text-primary: #ffffff;
+  --text-secondary: #cbd5e1;
   --text-muted: #94a3b8;
-  --text-dim: #64748b;
-  --emerald-primary: #10b981;
-  --emerald-hover: #059669;
-  --emerald-glow: rgba(16, 185, 129, 0.25);
-  --cyan-accent: #06b6d4;
-  --amber-warning: #f59e0b;
+  --emerald-main: #10b981;
+  --emerald-glow: rgba(16, 185, 129, 0.3);
+  --cyan-main: #06b6d4;
+  --amber-main: #f59e0b;
 }
 
-/* Global App Shell */
+/* Base Body Contrast */
 .stApp {
   background-color: var(--bg-deep);
   color: var(--text-primary);
@@ -83,64 +80,64 @@ st.markdown("""<style>
 }
 
 .block-container {
-  max-width: 1480px;
-  padding: 1.2rem 2rem 4rem;
+  max-width: 1520px;
+  padding: 1rem 2rem 4rem;
 }
 
+/* Headings */
 h1, h2, h3, h4, h5, h6 {
   font-family: 'Outfit', sans-serif;
   letter-spacing: -0.025em;
-  color: var(--text-primary);
+  color: #ffffff !important;
+  font-weight: 800;
 }
 
-/* Cards & Containers */
+/* Card Wrappers */
 [data-testid="stVerticalBlockBorderWrapper"] {
   background: var(--bg-card);
-  border: 1px solid var(--border-subtle) !important;
+  border: 1px solid var(--border-card) !important;
   border-radius: 16px !important;
-  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(12px);
-  padding: 1rem 1.25rem;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  padding: 1.1rem 1.35rem;
+  margin-bottom: 0.5rem;
 }
 
-/* Top Studio Navigation Bar */
+/* Top Navigation Bar */
 .pro-navbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid var(--border-subtle);
-  padding: 0.6rem 0 1.2rem;
-  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border-card);
+  padding: 0.5rem 0 1.2rem;
+  margin-bottom: 1.2rem;
 }
 
 .brand-badge {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.6rem;
   font-family: 'Outfit', sans-serif;
-  font-size: 1.35rem;
+  font-size: 1.4rem;
   font-weight: 900;
-  letter-spacing: -0.03em;
   color: #ffffff;
 }
 
 .brand-badge span {
-  color: var(--emerald-primary);
-  text-shadow: 0 0 12px var(--emerald-glow);
+  color: var(--emerald-main);
+  text-shadow: 0 0 14px var(--emerald-glow);
 }
 
 .engine-status-pill {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.75rem;
+  font-size: 0.78rem;
   font-weight: 800;
-  padding: 0.4rem 0.9rem;
+  padding: 0.4rem 0.95rem;
   border-radius: 99px;
-  background: rgba(16, 185, 129, 0.12);
+  background: rgba(16, 185, 129, 0.15);
   color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.35);
-  box-shadow: 0 0 15px rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.4);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
@@ -148,50 +145,43 @@ h1, h2, h3, h4, h5, h6 {
 .engine-status-pill::before {
   content: "";
   display: inline-block;
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: #10b981;
   box-shadow: 0 0 10px #10b981;
-  animation: pulseDot 2s infinite ease-in-out;
 }
 
-@keyframes pulseDot {
-  0% { transform: scale(0.9); opacity: 0.6; }
-  50% { transform: scale(1.3); opacity: 1; }
-  100% { transform: scale(0.9); opacity: 0.6; }
-}
-
-/* Eyebrows & Section Headers */
+/* Eyebrow Label */
 .eyebrow {
   font-family: 'Space Grotesk', sans-serif;
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   text-transform: uppercase;
-  letter-spacing: 0.14em;
-  color: var(--emerald-primary);
-  font-weight: 700;
-  margin-bottom: 0.5rem;
+  letter-spacing: 0.12em;
+  color: var(--emerald-main);
+  font-weight: 800;
+  margin-bottom: 0.6rem;
   display: flex;
   align-items: center;
   gap: 0.4rem;
 }
 
-/* Viral Hook Card */
+/* Hook Card */
 .hook-card {
   padding: 0.75rem 1rem;
-  border: 1px solid var(--border-subtle);
+  border: 1px solid var(--border-card);
   border-radius: 12px;
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(30, 41, 59, 0.7);
   margin-bottom: 0.6rem;
-  font-size: 0.88rem;
+  color: #ffffff;
+  font-size: 0.9rem;
   line-height: 1.45;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
 }
 
 .hook-card:hover {
-  border-color: var(--emerald-primary);
-  background: rgba(16, 185, 129, 0.05);
-  transform: translateX(3px);
+  border-color: var(--emerald-main);
+  background: rgba(16, 185, 129, 0.08);
 }
 
 .hook-meta {
@@ -202,47 +192,40 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .hook-tag {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--cyan-accent);
+  color: var(--cyan-main);
 }
 
 .hold-rate-badge {
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 800;
-  padding: 0.15rem 0.5rem;
+  padding: 0.2rem 0.55rem;
   border-radius: 6px;
-  background: rgba(16, 185, 129, 0.15);
+  background: rgba(16, 185, 129, 0.2);
   color: #34d399;
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  border: 1px solid rgba(16, 185, 129, 0.4);
 }
 
-/* Competitor Radar Card */
+/* Competitor Radar Row */
 .competitor-row {
   display: flex;
   align-items: center;
-  gap: 0.85rem;
-  padding: 0.65rem 0.85rem;
-  background: rgba(15, 23, 42, 0.75);
-  border: 1px solid var(--border-subtle);
+  gap: 0.9rem;
+  padding: 0.7rem 0.9rem;
+  background: rgba(30, 41, 59, 0.8);
+  border: 1px solid var(--border-card);
   border-radius: 12px;
   margin-bottom: 0.6rem;
-  transition: all 0.2s ease;
-}
-
-.competitor-row:hover {
-  border-color: rgba(255, 255, 255, 0.2);
-  background: rgba(19, 27, 46, 0.9);
 }
 
 .comp-img {
   width: 96px;
-  height: 54px;
+  height: 56px;
   border-radius: 8px;
   object-fit: cover;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .comp-content {
@@ -251,30 +234,48 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .comp-title {
-  font-size: 0.84rem;
+  font-size: 0.88rem;
   font-weight: 700;
-  color: #f1f5f9;
+  color: #ffffff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .comp-meta {
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  margin-top: 0.2rem;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  margin-top: 0.25rem;
 }
 
-.comp-link {
-  color: var(--cyan-accent);
-  text-decoration: none;
-  font-weight: 600;
+/* Storyboard Scene Card */
+.scene-grid-card {
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid var(--border-card);
+  border-radius: 10px;
+  padding: 0.65rem 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+.scene-grid-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: var(--emerald-main);
+  margin-bottom: 0.25rem;
+}
+
+.scene-grid-body {
+  font-size: 0.82rem;
+  color: #f1f5f9;
+  line-height: 1.35;
 }
 
 /* Retention Gauge Meter */
 .retention-bar-wrapper {
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid var(--border-subtle);
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid var(--border-card);
   border-radius: 12px;
   padding: 0.85rem 1.1rem;
   margin-bottom: 0.85rem;
@@ -284,15 +285,16 @@ h1, h2, h3, h4, h5, h6 {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.82rem;
+  font-size: 0.86rem;
   font-weight: 700;
-  margin-bottom: 0.4rem;
+  color: #ffffff;
+  margin-bottom: 0.45rem;
 }
 
 .retention-fill-track {
   width: 100%;
   height: 8px;
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.12);
   border-radius: 99px;
   overflow: hidden;
 }
@@ -307,24 +309,22 @@ h1, h2, h3, h4, h5, h6 {
 .stButton > button {
   border-radius: 10px;
   font-weight: 700;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   min-height: 2.75rem;
-  transition: all 0.2s ease;
-  border: 1px solid var(--border-subtle);
-  background: #131c30;
-  color: #f8fafc;
+  border: 1px solid var(--border-card);
+  background: #1e293b;
+  color: #ffffff;
 }
 
 .stButton > button:hover {
-  background: #1e293b;
-  border-color: rgba(255, 255, 255, 0.25);
-  transform: translateY(-1px);
+  background: #334155;
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .stButton > button[kind="primary"] {
-  background: var(--emerald-primary);
-  border-color: var(--emerald-primary);
-  color: #04100c;
+  background: var(--emerald-main);
+  border-color: var(--emerald-main);
+  color: #04100c !important;
   font-weight: 800;
   box-shadow: 0 4px 18px rgba(16, 185, 129, 0.35);
 }
@@ -333,23 +333,6 @@ h1, h2, h3, h4, h5, h6 {
   background: #34d399;
   border-color: #34d399;
   box-shadow: 0 6px 24px rgba(16, 185, 129, 0.5);
-  transform: translateY(-2px);
-}
-
-/* Text Inputs and Selects */
-.stTextInput > div > div > input,
-.stTextArea > div > div > textarea,
-.stSelectbox > div > div {
-  background-color: #090e1a !important;
-  border-color: var(--border-subtle) !important;
-  color: #f8fafc !important;
-  border-radius: 10px !important;
-}
-
-.stTextInput > div > div > input:focus,
-.stTextArea > div > div > textarea:focus {
-  border-color: var(--emerald-primary) !important;
-  box-shadow: 0 0 0 1px var(--emerald-primary) !important;
 }
 </style>""", unsafe_allow_html=True)
 
@@ -361,7 +344,6 @@ with st.sidebar:
 
     llm_choice = st.selectbox("AI Intelligence Tier", ["Google Gemini 2.5 (Active)", "OpenAI / Local Ollama", "Demo Sandbox"], index=0)
 
-    # Automatically resolve Gemini key from secure vault
     gemini_key = AUTO_GEMINI_KEY
     if not gemini_key and "Gemini" in llm_choice:
         gemini_key = st.text_input("Gemini API Key", type="password", help="Enter your Google Gemini API key.")
@@ -373,7 +355,7 @@ with st.sidebar:
         openai_key = st.text_input("OpenAI Key", value=openai_key, type="password")
 
     st.markdown("---")
-    st.markdown("#### 📡 Live Intelligence Channels")
+    st.markdown("#### 📡 Market Intelligence APIs")
     yt_key = AUTO_YT_KEY
     if yt_key:
         st.caption(f"🟢 **YouTube Data API Connected:** `••••••••{yt_key[-5:]}`")
@@ -404,7 +386,7 @@ with st.sidebar:
 current_llm = get_llm_provider("gemini" if "Gemini" in llm_choice else llm_choice, api_key=gemini_key or openai_key)
 
 # ---------------------------------------------------------
-# State Initialization
+# State Defaults
 # ---------------------------------------------------------
 defaults = {
     "niche": "AI productivity",
@@ -424,7 +406,9 @@ If you try this, start with a single video. Add something only you can contribut
 
 AI widens your options. Human judgment narrows them. That's the system that scales.""",
     "voice_model": "en-US-JennyNeural-Female",
-    "aspect_ratio": "16:9",
+    "aspect_ratio": "9:16 (Shorts/TikTok/Reels)",
+    "video_pacing": "🎬 Standard (5s Cuts)",
+    "subtitle_style": "🟡 Hormozi Pop (Gold/Emerald)",
     "hooks": [],
     "competitors": [],
     "rendered_video_path": "",
@@ -453,7 +437,7 @@ st.markdown(
 left_panel, right_panel = st.columns([1.15, 1.1], gap="large")
 
 with left_panel:
-    # 1. Brief & Live Market Radar
+    # 1. Brief & Topic
     with st.container(border=True):
         st.markdown('<div class="eyebrow">01 · Topic Brief & Live Market Radar</div>', unsafe_allow_html=True)
         col_a, col_b = st.columns([1, 1.6])
@@ -461,9 +445,8 @@ with left_panel:
         st.session_state.topic = col_b.text_input("Core Video Topic", st.session_state.topic)
 
         gen_c1, gen_c2 = st.columns(2)
-        if gen_c1.button("✨ Auto-Generate Full Storyboard", type="primary", use_container_width=True):
+        if gen_c1.button("✨ Auto-Generate Storyboard", type="primary", use_container_width=True):
             with st.spinner("Analyzing live YouTube competitor radar & executing AI Council..."):
-                # Fetch live YouTube competitor benchmarks
                 st.session_state.competitors = fetch_live_youtube_competitors(
                     query=st.session_state.topic,
                     api_key=yt_key,
@@ -497,7 +480,7 @@ with left_panel:
             save_project_draft({k: st.session_state[k] for k in defaults.keys()}, OUTPUTS_DIR)
             st.success("Project draft saved to local library!")
 
-    # 1.5 Live Competitor Benchmarks Card
+    # 1.5 Live Competitor Radar
     if not st.session_state.competitors:
         st.session_state.competitors = fetch_live_youtube_competitors(st.session_state.topic, api_key=yt_key, limit=3)
 
@@ -510,7 +493,7 @@ with left_panel:
                       <img src="{comp.get('thumbnail')}" class="comp-img" />
                       <div class="comp-content">
                         <div class="comp-title">{comp.get('title')}</div>
-                        <div class="comp-meta">📺 {comp.get('channel')} · 🔥 {comp.get('views')} · <a href="{comp.get('url')}" target="_blank" class="comp-link">Watch on YouTube ↗</a></div>
+                        <div class="comp-meta">📺 {comp.get('channel')} · 🔥 {comp.get('views')} · <a href="{comp.get('url')}" target="_blank" style="color:#06b6d4; font-weight:700;">Watch on YouTube ↗</a></div>
                       </div>
                     </div>""",
                     unsafe_allow_html=True,
@@ -541,7 +524,7 @@ with left_panel:
                     st.success("Hook applied!")
                     st.rerun()
 
-    # 3. Narration Script & Tone Presets
+    # 3. Narration Script & Tone
     with st.container(border=True):
         st.markdown('<div class="eyebrow">03 · Script Narration & Tone Presets</div>', unsafe_allow_html=True)
 
@@ -563,7 +546,6 @@ with left_panel:
                 )
             st.rerun()
 
-        # Real-time Retention Audit
         ret_audit = audit_script_retention(st.session_state.script)
         words = len(st.session_state.script.split())
         est_sec = round(words / 2.3)
@@ -584,26 +566,56 @@ with left_panel:
 
         st.session_state.script = st.text_area("Narration Script", st.session_state.script, height=210, label_visibility="collapsed")
 
+    # 3.5 Multi-Scene Storyboard Breakdown
+    target_clip_sec = 3 if "3s" in st.session_state.video_pacing else 8 if "8s" in st.session_state.video_pacing else 5
+    scenes = segment_script_into_scenes(st.session_state.script, target_clip_duration_sec=target_clip_sec)
+
+    with st.expander(f"🎬 Scene-by-Scene Multi-Clip Timeline ({len(scenes)} Scenes)", expanded=False):
+        for sc in scenes:
+            st.markdown(
+                f"""<div class="scene-grid-card">
+                  <div class="scene-grid-header">
+                    <span>SCENE {sc['scene_idx']:02d} [{sc['time_label']}]</span>
+                    <span>TAGS: {sc['broll_query']}</span>
+                  </div>
+                  <div class="scene-grid-body"><b>Visual:</b> {sc['visual_concept']}</div>
+                </div>""",
+                unsafe_allow_html=True,
+            )
+
 with right_panel:
-    # 4. Interactive Live Simulator
+    # 4. Multi-Format Video Customization Matrix
     with st.container(border=True):
-        st.markdown('<div class="eyebrow">04 · Live Interactive Video Simulator</div>', unsafe_allow_html=True)
-        scenes = segment_script_into_scenes(st.session_state.script, target_clip_duration_sec=5)
+        st.markdown('<div class="eyebrow">04 · Video Format & Style Customizer</div>', unsafe_allow_html=True)
+        vf_1, vf_2, vf_3 = st.columns(3)
+
+        aspect_opts = ["9:16 (Shorts/TikTok/Reels)", "16:9 (YouTube Widescreen)", "1:1 (Square Feed)"]
+        st.session_state.aspect_ratio = vf_1.selectbox("Format / Aspect", aspect_opts, index=aspect_opts.index(st.session_state.aspect_ratio) if st.session_state.aspect_ratio in aspect_opts else 0)
+
+        pacing_opts = ["⚡ Fast (3s Viral Cuts)", "🎬 Standard (5s Flow)", "📽️ Cinematic (8s Deep Dive)"]
+        st.session_state.video_pacing = vf_2.selectbox("Scene Cut Pacing", pacing_opts, index=pacing_opts.index(st.session_state.video_pacing) if st.session_state.video_pacing in pacing_opts else 1)
+
+        sub_opts = ["🟡 Hormozi Pop (Gold/Emerald)", "🔴 MrBeast Impact (Bold Red)", "🔵 Cyber Cyan", "⚪ Clean Minimalist"]
+        st.session_state.subtitle_style = vf_3.selectbox("Subtitle Styling", sub_opts, index=sub_opts.index(st.session_state.subtitle_style) if st.session_state.subtitle_style in sub_opts else 0)
+
+    # 4.5 Interactive Live Simulator
+    with st.container(border=True):
+        st.markdown('<div class="eyebrow">04.5 · Live Interactive Video Simulator</div>', unsafe_allow_html=True)
 
         sim_html = render_live_video_simulator(
             scenes=scenes,
             title=st.session_state.topic,
-            aspect_ratio=st.session_state.aspect_ratio,
+            aspect_ratio=st.session_state.aspect_ratio.split()[0],
+            subtitle_style=st.session_state.subtitle_style.split()[1].lower(),
         )
-        st.components.v1.html(sim_html, height=430, scrolling=False)
+        sim_height = 580 if "9:16" in st.session_state.aspect_ratio else 450
+        st.components.v1.html(sim_html, height=sim_height, scrolling=False)
 
     # 5. Native In-House MP4 Video Rendering Engine
     with st.container(border=True):
         st.markdown('<div class="eyebrow">05 · In-House Video Render & Export Hub</div>', unsafe_allow_html=True)
 
-        r1, r2 = st.columns(2)
-        st.session_state.voice_model = r1.selectbox("Neural Voice", list(AVAILABLE_VOICES.keys()), index=0)
-        st.session_state.aspect_ratio = r2.selectbox("Video Format", ["16:9 (Widescreen)", "9:16 (Shorts/Reels)"])
+        st.session_state.voice_model = st.selectbox("Neural Voiceover (Edge-TTS)", list(AVAILABLE_VOICES.keys()), index=0)
 
         render_progress = st.progress(0, text="Ready for instant rendering.")
 
@@ -616,7 +628,7 @@ with right_panel:
                     "voice_name": st.session_state.voice_model,
                     "voice_rate": 1.0,
                     "video_aspect": st.session_state.aspect_ratio.split()[0],
-                    "video_clip_duration": 5,
+                    "video_clip_duration": target_clip_sec,
                     "video_terms": compile_storyboard_to_broll_terms(scenes),
                 }
                 success, msg, out_path = render_video_pipeline(
