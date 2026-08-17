@@ -14,6 +14,7 @@ from studio.engine import (
     compile_storyboard_to_broll_terms,
     create_social_package,
     delete_project_draft,
+    fetch_live_youtube_competitors,
     fetch_research_pack,
     generate_hook_variations,
     generate_thumbnail_svg,
@@ -33,7 +34,7 @@ st.set_page_config(
     page_title="Signal Studio · Embedded Video Engine",
     page_icon="🎬",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 OUTPUTS_DIR = Path(__file__).parent / "studio_outputs"
@@ -118,12 +119,37 @@ h1, h2, h3, h4, h5 { font-family: 'Manrope', sans-serif; letter-spacing: -0.03em
 
 .hook-chip:hover { border-color: var(--green); background: #fafaf8; }
 
-.download-card {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  border-radius: 10px;
-  padding: 1rem;
-  margin-top: 1rem;
+.competitor-card {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  background: #f8fafc;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+}
+
+.competitor-thumb {
+  width: 90px;
+  height: 52px;
+  border-radius: 6px;
+  object-fit: cover;
+}
+
+.competitor-info {
+  font-size: 0.82rem;
+  line-height: 1.25;
+}
+
+.competitor-title {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.competitor-meta {
+  color: #64748b;
+  font-size: 0.75rem;
 }
 
 .stButton > button {
@@ -146,17 +172,22 @@ h1, h2, h3, h4, h5 { font-family: 'Manrope', sans-serif; letter-spacing: -0.03em
 </style>""", unsafe_allow_html=True)
 
 # ---------------------------------------------------------
-# Sidebar: Settings & Saved Drafts
+# Sidebar: Settings & Live API Keys
 # ---------------------------------------------------------
 with st.sidebar:
-    st.markdown("### ⚙️ Engine Settings")
-    llm_choice = st.selectbox("AI Engine", ["Demo (Zero Keys)", "Google Gemini", "OpenAI / Local Ollama"], index=0)
-    gemini_key = st.text_input("Gemini API Key", value=os.getenv("GEMINI_API_KEY", ""), type="password") if llm_choice == "Google Gemini" else ""
-    openai_key = st.text_input("OpenAI Key", value=os.getenv("OPENAI_API_KEY", ""), type="password") if llm_choice == "OpenAI / Local Ollama" else ""
-    pexels_key = st.text_input("Pexels API Key (Optional)", value=os.getenv("PEXELS_API_KEY", ""), type="password", help="Leave blank to use curated offline stock media cache.")
+    st.markdown("### ⚙️ Engine & API Connections")
+    llm_choice = st.selectbox("AI Engine", ["Google Gemini (Recommended)", "OpenAI / Local Ollama", "Demo (Zero Keys)"], index=0)
+    gemini_key = st.text_input("Gemini API Key", value=os.getenv("GEMINI_API_KEY", ""), type="password", help="Enables live Google Gemini 2.5 flash reasoning.") if "Gemini" in llm_choice else ""
+    openai_key = st.text_input("OpenAI Key", value=os.getenv("OPENAI_API_KEY", ""), type="password") if "OpenAI" in llm_choice else ""
+
+    st.markdown("#### 📡 Market Intelligence APIs")
+    yt_api_key = st.text_input("YouTube Data API v3 Key (Optional)", value=os.getenv("YOUTUBE_API_KEY", ""), type="password", help="Fetches live competitor view counts, ranking titles, and thumbnails directly from YouTube.")
+    google_search_key = st.text_input("Google Search API Key (Optional)", value=os.getenv("GOOGLE_SEARCH_KEY", ""), type="password", help="Fetches live primary citations.")
+    google_cx = st.text_input("Google CSE ID (Optional)", value=os.getenv("GOOGLE_SEARCH_CX", ""), type="password") if google_search_key else ""
+    pexels_key = st.text_input("Pexels API Key (Optional)", value=os.getenv("PEXELS_API_KEY", ""), type="password", help="Custom Pexels stock video search key.")
 
     st.markdown("---")
-    st.markdown("### 🗂️ Project Library")
+    st.markdown("### 🗂️ Saved Project Library")
     saved_projects = list_saved_projects(OUTPUTS_DIR)
     if saved_projects:
         proj_options = {p.get("project_id", ""): f"{p.get('topic', 'Untitled')[:24]} ({p.get('updated_at', '')[:10]})" for p in saved_projects}
@@ -197,6 +228,7 @@ AI widens your options. Human judgment narrows them. That's the system that scal
     "voice_model": "en-US-JennyNeural-Female",
     "aspect_ratio": "16:9",
     "hooks": [],
+    "competitors": [],
     "rendered_video_path": "",
     "rendered_audio_path": "",
     "rendered_srt_path": "",
@@ -211,7 +243,7 @@ for k, v in defaults.items():
 # ---------------------------------------------------------
 st.markdown(
     '<div class="top-nav">'
-    '<div class="brand-title"><b>🎬 SIGNAL STUDIO</b> <span>· Embedded MoneyPrinter Engine</span></div>'
+    '<div class="brand-title"><b>🎬 SIGNAL STUDIO</b> <span>· YouTube Market Intel & Video Engine</span></div>'
     '<div class="badge-embedded">⚡ 100% IN-HOUSE MP4 RENDERER ACTIVE</div>'
     '</div>',
     unsafe_allow_html=True,
@@ -225,15 +257,33 @@ left_panel, right_panel = st.columns([1.1, 1.1], gap="large")
 with left_panel:
     # 1. Brief & Topic
     with st.container(border=True):
-        st.markdown('<div class="eyebrow">01 · Topic & Creative Brief</div>', unsafe_allow_html=True)
+        st.markdown('<div class="eyebrow">01 · Topic & Live Market Intel</div>', unsafe_allow_html=True)
         col_a, col_b = st.columns([1, 1.5])
         st.session_state.niche = col_a.text_input("Niche", st.session_state.niche)
         st.session_state.topic = col_b.text_input("Video Topic", st.session_state.topic)
 
         gen_c1, gen_c2 = st.columns(2)
         if gen_c1.button("✨ Auto-Generate Storyboard", type="primary", use_container_width=True):
-            with st.spinner("AI Council drafting angle & hooks..."):
-                proposals, win_idx, _ = run_council(st.session_state.topic, st.session_state.niche, llm_provider=current_llm)
+            with st.spinner("Fetching live YouTube competitor data & AI Council..."):
+                # Fetch live YouTube competitor references
+                st.session_state.competitors = fetch_live_youtube_competitors(
+                    query=st.session_state.topic,
+                    api_key=yt_api_key,
+                    limit=3,
+                )
+                citations = fetch_research_pack(
+                    topic=st.session_state.topic,
+                    google_api_key=google_search_key,
+                    google_cx=google_cx,
+                )
+
+                proposals, win_idx, _ = run_council(
+                    st.session_state.topic,
+                    st.session_state.niche,
+                    llm_provider=current_llm,
+                    competitors=st.session_state.competitors,
+                    citations=citations,
+                )
                 selected = proposals[win_idx] if proposals else {}
                 st.session_state.script = make_script(
                     topic=st.session_state.topic,
@@ -243,6 +293,8 @@ with left_panel:
                     niche=st.session_state.niche,
                     tone_preset=st.session_state.tone_preset,
                     llm_provider=current_llm,
+                    competitors=st.session_state.competitors,
+                    citations=citations,
                 )
                 st.session_state.hooks = generate_hook_variations(st.session_state.topic, st.session_state.niche, llm_provider=current_llm)
             st.rerun()
@@ -250,6 +302,23 @@ with left_panel:
         if gen_c2.button("💾 Save Draft", use_container_width=True):
             save_project_draft({k: st.session_state[k] for k in defaults.keys()}, OUTPUTS_DIR)
             st.success("Draft saved!")
+
+    # 1.5 Live YouTube Competitor Cards
+    if st.session_state.competitors:
+        with st.container(border=True):
+            st.markdown('<div class="eyebrow">📡 Live YouTube Competitor References</div>', unsafe_allow_html=True)
+            st.caption("The AI has analyzed these ranking videos to formulate a differentiated, contrarian angle:")
+            for comp in st.session_state.competitors[:3]:
+                st.markdown(
+                    f"""<div class="competitor-card">
+                      <img src="{comp.get('thumbnail')}" class="competitor-thumb" />
+                      <div class="competitor-info">
+                        <div class="competitor-title">{comp.get('title')}</div>
+                        <div class="competitor-meta">📺 {comp.get('channel')} · 🔥 {comp.get('views')} · <a href="{comp.get('url')}" target="_blank">Watch Video ↗</a></div>
+                      </div>
+                    </div>""",
+                    unsafe_allow_html=True,
+                )
 
     # 2. Viral Hook Lab
     with st.container(border=True):
@@ -273,13 +342,16 @@ with left_panel:
         st.session_state.tone_preset = s_t1.selectbox("Tone Preset", tone_opts, index=tone_opts.index(st.session_state.tone_preset) if st.session_state.tone_preset in tone_opts else 0)
 
         if s_t2.button("🔄 Rewrite Script", use_container_width=True):
-            with st.spinner("Rewriting with selected tone..."):
+            with st.spinner("Rewriting with selected tone & competitor intelligence..."):
+                citations = fetch_research_pack(st.session_state.topic, google_api_key=google_search_key, google_cx=google_cx)
                 st.session_state.script = make_script(
                     topic=st.session_state.topic,
-                    angle="Core Angle",
+                    angle="Core Differentiated Angle",
                     niche=st.session_state.niche,
                     tone_preset=st.session_state.tone_preset,
                     llm_provider=current_llm,
+                    competitors=st.session_state.competitors,
+                    citations=citations,
                 )
             st.rerun()
 
@@ -398,7 +470,6 @@ with right_panel:
                 if has_video: zf.write(st.session_state.rendered_video_path, arcname=Path(st.session_state.rendered_video_path).name)
                 if has_audio: zf.write(st.session_state.rendered_audio_path, arcname=Path(st.session_state.rendered_audio_path).name)
                 if srt_path and os.path.exists(srt_path): zf.write(srt_path, arcname=Path(srt_path).name)
-                # Write script and metadata
                 zf.writestr("narration_script.txt", st.session_state.script)
 
             if zip_path.exists():

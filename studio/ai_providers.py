@@ -43,7 +43,14 @@ class BaseLLMProvider(ABC):
         pass
 
     @abstractmethod
-    def run_council(self, topic: str, niche: str, audience: str) -> tuple[list[dict[str, str]], int, str]:
+    def run_council(
+        self,
+        topic: str,
+        niche: str,
+        audience: str,
+        competitors: list[dict[str, Any]] | None = None,
+        citations: list[dict[str, Any]] | None = None,
+    ) -> tuple[list[dict[str, str]], int, str]:
         pass
 
     @abstractmethod
@@ -57,6 +64,8 @@ class BaseLLMProvider(ABC):
         audience: str,
         duration_sec: int = 60,
         tone_preset: str = "balanced",
+        competitors: list[dict[str, Any]] | None = None,
+        citations: list[dict[str, Any]] | None = None,
     ) -> str:
         pass
 
@@ -89,28 +98,39 @@ class DemoLLMProvider(BaseLLMProvider):
             for title, score, signal in templates
         ]
 
-    def run_council(self, topic: str, niche: str, audience: str) -> tuple[list[dict[str, str]], int, str]:
+    def run_council(
+        self,
+        topic: str,
+        niche: str,
+        audience: str,
+        competitors: list[dict[str, Any]] | None = None,
+        citations: list[dict[str, Any]] | None = None,
+    ) -> tuple[list[dict[str, str]], int, str]:
+        comp_context = ""
+        if competitors:
+            comp_context = f" (Differentiating from {len(competitors)} ranking YouTube videos)"
+
         proposals = [
             {
                 "advisor": "Story Architect",
                 "angle": "The Lived Experiment",
-                "hook": f"I gave {topic.lower()} one week—and the result wasn't what the tutorials promised.",
-                "thesis": f"Turn {topic} into a specific before/after experiment with visible evidence and a creator's perspective.",
+                "hook": f"I spent 30 days testing {topic.lower()} so you don't waste 100 hours making my mistakes.",
+                "thesis": f"Transform {topic} into a real-world case study with measured benchmarks and authentic friction points{comp_context}.",
             },
             {
                 "advisor": "Audience Advocate",
-                "angle": "The Pragmatic Shortcut",
-                "hook": f"You don't need another complicated tutorial. You need one {niche or 'creator'} workflow that survives a busy Tuesday.",
-                "thesis": f"Focus purely on time-saving constraints for {audience or 'creators'}, delivering a 3-step repeatable system.",
+                "angle": "The High-Contrast Shortcut",
+                "hook": f"Average creators spend 8 hours on {niche or 'this'}. Top creators do it in 45 minutes with this exact rule.",
+                "thesis": f"Focus purely on time-saving constraints for {audience or 'creators'}, delivering an actionable 3-step system.",
             },
             {
                 "advisor": "Skeptical Editor",
                 "angle": "The Contrarian Audit",
-                "hook": "The most popular advice in this space gets one fundamental thing completely backwards.",
-                "thesis": "Challenge generic advice, outline realistic boundary conditions, and conclude with verified benchmarks.",
+                "hook": f"Stop doing {topic.lower()} until you fix this one invisible bottleneck.",
+                "thesis": "Deconstruct why generic YouTube tutorials fail in production and reveal the single operational constraint that matters.",
             },
         ]
-        return proposals, 1, "Audience Advocate selected: Delivers the strongest immediate viewer utility and actionable steps."
+        return proposals, 1, "Audience Advocate selected: Delivers maximum retention velocity and differentiated audience value."
 
     def generate_script(
         self,
@@ -122,20 +142,27 @@ class DemoLLMProvider(BaseLLMProvider):
         audience: str,
         duration_sec: int = 60,
         tone_preset: str = "balanced",
+        competitors: list[dict[str, Any]] | None = None,
+        citations: list[dict[str, Any]] | None = None,
     ) -> str:
+        comp_mention = ""
+        if competitors and len(competitors) > 0:
+            top_comp = competitors[0].get("title", "")
+            comp_mention = f"Unlike the typical '{top_comp[:40]}...' style videos that focus on theory, "
+
         if "hormozi" in tone_preset.lower():
             return f"""{hook}
 
-Here is the brutal truth about {topic.lower()}: 90% of creators fail because they automate the output instead of the bottleneck.
+Here is the brutal truth about {topic.lower()}: 90% of creators fail because they automate the output instead of fixing the bottleneck.
 
-I wasted months testing 20 different AI tools. They didn't make me faster—they just produced faster junk.
+{comp_mention}I spent months testing 20 different systems. They didn't make me faster—they just produced faster junk.
 
 Then I set one non-negotiable rule:
 Rule 1: Never generate a video without a verified audience constraint.
 Rule 2: Force AI to pitch 3 competing angles, then pick the one with zero fluff.
 Rule 3: Check every single claim before hitting render.
 
-The result? Creation time dropped from 8 hours to 45 minutes per video.
+The result? Production time dropped from 8 hours to 45 minutes per video.
 
 Automation gives you speed. Human checkpoints give you authority. If you want leverage, focus on the gate, not the button."""
         elif "veritasium" in tone_preset.lower():
@@ -143,7 +170,7 @@ Automation gives you speed. Human checkpoints give you authority. If you want le
 
 When we look at {topic.lower()}, there is a paradox that nobody talks about: why do the channels using the most automation often get the lowest viewer retention?
 
-To find out, I spent 30 days testing video workflows under controlled conditions.
+To find out, I spent 30 days testing workflows under controlled conditions.
 
 What the analytics revealed was counter-intuitive. Viewers don't leave because a script was written with AI assistance. They leave because AI defaults to averaging out the most predictable sentence patterns.
 
@@ -167,7 +194,7 @@ Save this video and test it on your next upload!"""
 
 Most people approach {topic.lower()} by collecting more tools and adding friction to their day. I did too—and it only slowed down real progress.
 
-So I tested a lean approach: one week, one repeatable workflow, and one rule: every automated step had to leave room for a human decision.
+{comp_mention}so I tested a lean approach: one week, one repeatable workflow, and one rule: every automated step had to leave room for a human decision.
 
 Step one: Start with the viewer's exact constraint, not a vague keyword.
 Step two: Use AI to generate multiple competing angles, then filter aggressively for originality and practical proof.
@@ -244,10 +271,12 @@ class GeminiLLMProvider(BaseLLMProvider):
             raise
 
     def generate_topics(self, niche: str, audience: str, goal: str) -> list[dict[str, Any]]:
-        prompt = f"""Generate 3 high-potential YouTube video topic ideas for:
+        prompt = f"""Generate 3 non-generic, high-potential YouTube video topic ideas for:
 Niche: {niche}
 Target Audience: {audience}
 Goal: {goal}
+
+Avoid generic listicles. Focus on high-contrast experiments, counter-intuitive insights, and real creator friction points.
 
 Return a valid JSON array of 3 objects with these exact keys:
 [
@@ -256,7 +285,7 @@ Return a valid JSON array of 3 objects with these exact keys:
 ]
 Return ONLY raw JSON, no markdown."""
         try:
-            raw = self._call(prompt, "You are a world-class YouTube content strategist.")
+            raw = self._call(prompt, "You are a world-class YouTube content strategist who hates generic AI content.")
             parsed = json.loads(_clean_json_text(raw))
             if isinstance(parsed, list) and len(parsed) >= 3:
                 return parsed[:3]
@@ -264,17 +293,38 @@ Return ONLY raw JSON, no markdown."""
             logger.warning(f"Gemini generate_topics fallback: {e}")
         return DemoLLMProvider().generate_topics(niche, audience, goal)
 
-    def run_council(self, topic: str, niche: str, audience: str) -> tuple[list[dict[str, str]], int, str]:
+    def run_council(
+        self,
+        topic: str,
+        niche: str,
+        audience: str,
+        competitors: list[dict[str, Any]] | None = None,
+        citations: list[dict[str, Any]] | None = None,
+    ) -> tuple[list[dict[str, str]], int, str]:
+        comp_text = ""
+        if competitors:
+            comp_text = "\nReal-Time Ranking YouTube Competitor Videos:\n" + "\n".join(
+                [f"- \"{c.get('title')}\" ({c.get('channel')} · {c.get('views')})" for c in competitors[:3]]
+            )
+
+        cite_text = ""
+        if citations:
+            cite_text = "\nLive Research & Facts:\n" + "\n".join(
+                [f"- {c.get('claim')} (Source: {c.get('source')})" for c in citations[:2]]
+            )
+
         prompt = f"""Topic: {topic}
 Niche: {niche}
 Audience: {audience}
+{comp_text}
+{cite_text}
 
 Form a 3-advisor editorial council with these personas:
 1. Story Architect (Focus: emotional transformation, narrative arc, personal experiment)
 2. Audience Advocate (Focus: immediate utility, friction reduction, 3-step actionable frameworks)
 3. Skeptical Editor (Focus: myth busting, contrarian truth, boundary conditions)
 
-Also evaluate as the Executive Judge and choose the single best advisor proposal.
+MANDATE: Propose angles that directly outperform and differentiate from the ranking competitor videos above. Avoid generic corporate fluff.
 
 Return ONLY a JSON object with this exact schema:
 {{
@@ -287,13 +337,13 @@ Return ONLY a JSON object with this exact schema:
   "judge_reasoning": "Explanation for why the winner was chosen"
 }}"""
         try:
-            raw = self._call(prompt, "You are an executive YouTube editorial council.")
+            raw = self._call(prompt, "You are an executive YouTube editorial council focused on original high-retention storytelling.")
             parsed = json.loads(_clean_json_text(raw))
             if "proposals" in parsed and isinstance(parsed["proposals"], list):
                 return parsed["proposals"], int(parsed.get("winner", 0)), str(parsed.get("judge_reasoning", ""))
         except Exception as e:
             logger.warning(f"Gemini run_council fallback: {e}")
-        return DemoLLMProvider().run_council(topic, niche, audience)
+        return DemoLLMProvider().run_council(topic, niche, audience, competitors, citations)
 
     def generate_script(
         self,
@@ -305,9 +355,24 @@ Return ONLY a JSON object with this exact schema:
         audience: str,
         duration_sec: int = 60,
         tone_preset: str = "balanced",
+        competitors: list[dict[str, Any]] | None = None,
+        citations: list[dict[str, Any]] | None = None,
     ) -> str:
         target_words = int((duration_sec / 60) * 140)
         tone_guidance = get_tone_prompt_guidance(tone_preset)
+
+        comp_text = ""
+        if competitors:
+            comp_text = "\nCompetitor Benchmark (Differentiate from this):\n" + "\n".join(
+                [f"- \"{c.get('title')}\" ({c.get('channel')})" for c in competitors[:2]]
+            )
+
+        cite_text = ""
+        if citations:
+            cite_text = "\nVerified Facts & Citations:\n" + "\n".join(
+                [f"- {c.get('claim')} ({c.get('evidence')})" for c in citations[:2]]
+            )
+
         prompt = f"""Write a high-retention YouTube video narration script.
 Topic: {topic}
 Selected Angle: {angle}
@@ -315,6 +380,8 @@ Thesis: {thesis}
 Mandatory Hook Line (first sentence): "{hook}"
 Target Audience: {audience}
 Target Length: Approx {target_words} words (around {duration_sec} seconds spoken).
+{comp_text}
+{cite_text}
 
 Tone Guidance:
 {tone_guidance}
@@ -330,7 +397,7 @@ Guidelines:
                 return script
         except Exception as e:
             logger.warning(f"Gemini generate_script fallback: {e}")
-        return DemoLLMProvider().generate_script(topic, angle, thesis, hook, niche, audience, duration_sec, tone_preset)
+        return DemoLLMProvider().generate_script(topic, angle, thesis, hook, niche, audience, duration_sec, tone_preset, competitors, citations)
 
     def generate_packaging(self, topic: str, script: str) -> dict[str, Any]:
         prompt = f"""For this YouTube topic and script, produce packaging concepts:
@@ -418,7 +485,7 @@ class OpenAILLMProvider(BaseLLMProvider):
             raise
 
     def generate_topics(self, niche: str, audience: str, goal: str) -> list[dict[str, Any]]:
-        prompt = f"""Generate 3 high-potential YouTube video topic ideas for:
+        prompt = f"""Generate 3 non-generic, high-potential YouTube video topic ideas for:
 Niche: {niche}
 Target Audience: {audience}
 Goal: {goal}
@@ -438,17 +505,31 @@ Return ONLY raw JSON, no markdown."""
             logger.warning(f"OpenAI generate_topics fallback: {e}")
         return DemoLLMProvider().generate_topics(niche, audience, goal)
 
-    def run_council(self, topic: str, niche: str, audience: str) -> tuple[list[dict[str, str]], int, str]:
+    def run_council(
+        self,
+        topic: str,
+        niche: str,
+        audience: str,
+        competitors: list[dict[str, Any]] | None = None,
+        citations: list[dict[str, Any]] | None = None,
+    ) -> tuple[list[dict[str, str]], int, str]:
+        comp_text = ""
+        if competitors:
+            comp_text = "\nReal-Time Ranking YouTube Competitor Videos:\n" + "\n".join(
+                [f"- \"{c.get('title')}\" ({c.get('channel')} · {c.get('views')})" for c in competitors[:3]]
+            )
+
         prompt = f"""Topic: {topic}
 Niche: {niche}
 Audience: {audience}
+{comp_text}
 
 Form a 3-advisor editorial council with these personas:
 1. Story Architect (Focus: emotional transformation, narrative arc, personal experiment)
 2. Audience Advocate (Focus: immediate utility, friction reduction, 3-step actionable frameworks)
 3. Skeptical Editor (Focus: myth busting, contrarian truth, boundary conditions)
 
-Also evaluate as the Executive Judge and choose the single best advisor proposal.
+MANDATE: Propose angles that directly outperform and differentiate from the ranking competitor videos above.
 
 Return ONLY a JSON object with this exact schema:
 {{
@@ -467,7 +548,7 @@ Return ONLY a JSON object with this exact schema:
                 return parsed["proposals"], int(parsed.get("winner", 0)), str(parsed.get("judge_reasoning", ""))
         except Exception as e:
             logger.warning(f"OpenAI run_council fallback: {e}")
-        return DemoLLMProvider().run_council(topic, niche, audience)
+        return DemoLLMProvider().run_council(topic, niche, audience, competitors, citations)
 
     def generate_script(
         self,
@@ -479,6 +560,8 @@ Return ONLY a JSON object with this exact schema:
         audience: str,
         duration_sec: int = 60,
         tone_preset: str = "balanced",
+        competitors: list[dict[str, Any]] | None = None,
+        citations: list[dict[str, Any]] | None = None,
     ) -> str:
         target_words = int((duration_sec / 60) * 140)
         tone_guidance = get_tone_prompt_guidance(tone_preset)
@@ -504,7 +587,7 @@ Guidelines:
                 return script
         except Exception as e:
             logger.warning(f"OpenAI generate_script fallback: {e}")
-        return DemoLLMProvider().generate_script(topic, angle, thesis, hook, niche, audience, duration_sec, tone_preset)
+        return DemoLLMProvider().generate_script(topic, angle, thesis, hook, niche, audience, duration_sec, tone_preset, competitors, citations)
 
     def generate_packaging(self, topic: str, script: str) -> dict[str, Any]:
         prompt = f"""For this YouTube topic and script, produce packaging concepts:
