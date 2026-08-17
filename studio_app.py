@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import zipfile
 from pathlib import Path
 
 import streamlit as st
@@ -117,6 +118,14 @@ h1, h2, h3, h4, h5 { font-family: 'Manrope', sans-serif; letter-spacing: -0.03em
 
 .hook-chip:hover { border-color: var(--green); background: #fafaf8; }
 
+.download-card {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
 .stButton > button {
   border-radius: 8px;
   font-weight: 700;
@@ -189,6 +198,8 @@ AI widens your options. Human judgment narrows them. That's the system that scal
     "aspect_ratio": "16:9",
     "hooks": [],
     "rendered_video_path": "",
+    "rendered_audio_path": "",
+    "rendered_srt_path": "",
     "render_message": "",
     "broll_tags": "creator desk, workflow diagram, editing timeline, screen capture",
 }
@@ -322,14 +333,24 @@ with right_panel:
                     progress_callback=on_progress,
                 )
                 st.session_state.render_message = msg
-                if out_path and str(out_path).endswith(".mp4"):
-                    st.session_state.rendered_video_path = str(out_path)
+                if out_path:
+                    p_str = str(out_path)
+                    if p_str.endswith(".mp4"):
+                        st.session_state.rendered_video_path = p_str
+                    elif p_str.endswith(".mp3"):
+                        st.session_state.rendered_audio_path = p_str
+                        srt_cand = p_str.replace("voice_", "subs_").replace(".mp3", ".srt")
+                        if os.path.exists(srt_cand):
+                            st.session_state.rendered_srt_path = srt_cand
 
         if st.session_state.render_message:
             st.success(st.session_state.render_message)
 
-        # In-App MP4 Player & Downloader
-        if st.session_state.rendered_video_path and os.path.exists(st.session_state.rendered_video_path):
+        # Download & Playback Section
+        has_video = st.session_state.rendered_video_path and os.path.exists(st.session_state.rendered_video_path)
+        has_audio = st.session_state.rendered_audio_path and os.path.exists(st.session_state.rendered_audio_path)
+
+        if has_video:
             st.markdown("##### 📺 Rendered Video Player")
             st.video(st.session_state.rendered_video_path)
             with open(st.session_state.rendered_video_path, "rb") as vf:
@@ -341,6 +362,54 @@ with right_panel:
                     type="primary",
                     use_container_width=True,
                 )
+
+        if has_audio or has_video or st.session_state.render_message:
+            st.markdown("##### 📦 Generated Media Assets Ready for Download")
+            d_col1, d_col2 = st.columns(2)
+
+            if has_audio:
+                with d_col1:
+                    st.audio(st.session_state.rendered_audio_path)
+                    with open(st.session_state.rendered_audio_path, "rb") as af:
+                        st.download_button(
+                            "⬇️ Download Voiceover Audio (.mp3)",
+                            data=af.read(),
+                            file_name=Path(st.session_state.rendered_audio_path).name,
+                            mime="audio/mp3",
+                            use_container_width=True,
+                        )
+
+            # Subtitle download
+            srt_path = st.session_state.rendered_srt_path or (st.session_state.rendered_audio_path.replace(".mp3", ".srt") if has_audio else "")
+            if srt_path and os.path.exists(srt_path):
+                with d_col2:
+                    with open(srt_path, "rb") as sf:
+                        st.download_button(
+                            "⬇️ Download Subtitles (.srt)",
+                            data=sf.read(),
+                            file_name=Path(srt_path).name,
+                            mime="text/plain",
+                            use_container_width=True,
+                        )
+
+            # Zip Complete Production Bundle
+            zip_path = OUTPUTS_DIR / "production_asset_bundle.zip"
+            with zipfile.ZipFile(zip_path, "w") as zf:
+                if has_video: zf.write(st.session_state.rendered_video_path, arcname=Path(st.session_state.rendered_video_path).name)
+                if has_audio: zf.write(st.session_state.rendered_audio_path, arcname=Path(st.session_state.rendered_audio_path).name)
+                if srt_path and os.path.exists(srt_path): zf.write(srt_path, arcname=Path(srt_path).name)
+                # Write script and metadata
+                zf.writestr("narration_script.txt", st.session_state.script)
+
+            if zip_path.exists():
+                with open(zip_path, "rb") as zf_file:
+                    st.download_button(
+                        "📦 Download Complete Production Bundle (.zip)",
+                        data=zf_file.read(),
+                        file_name="studio_video_bundle.zip",
+                        mime="application/zip",
+                        use_container_width=True,
+                    )
 
     # 6. Packaging & SEO Dropdown
     with st.expander("🎨 Thumbnail Mockup & Multi-Platform Social Packaging", expanded=False):
