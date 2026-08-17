@@ -2,12 +2,14 @@ from __future__ import annotations
 
 import json
 import os
+import urllib.error
+import urllib.request
 import zipfile
 from pathlib import Path
 
 import streamlit as st
 
-from studio.ai_providers import get_llm_provider
+from studio.ai_providers import GeminiLLMProvider, get_llm_provider
 from studio.engine import (
     AVAILABLE_VOICES,
     audit_script_retention,
@@ -48,7 +50,7 @@ def get_secure_key(name: str) -> str:
         return str(st.secrets[name]).strip()
     return os.getenv(name, "").strip()
 
-AUTO_GEMINI_KEY = get_secure_key("GEMINI_API_KEY") or get_secure_key("GOOGLE_API_KEY") or "AIzaSyCRI7Uu1rpy_oo9r3F8MFgn8vQ1OLGm308"
+AUTO_GEMINI_KEY = get_secure_key("GEMINI_API_KEY") or get_secure_key("GOOGLE_API_KEY")
 AUTO_YT_KEY = get_secure_key("YOUTUBE_API_KEY") or AUTO_GEMINI_KEY
 
 # ---------------------------------------------------------
@@ -300,13 +302,31 @@ h1, h2, h3, h4, h5, h6 {
 with st.sidebar:
     st.markdown("### ⚡ AI Studio Engine")
 
-    llm_choice = st.selectbox("AI Intelligence Tier", ["Google Gemini 3.6-Flash (Active)", "OpenAI / Local Ollama", "Demo Sandbox"], index=0)
+    llm_choice = st.selectbox("AI Intelligence Tier", ["Google Gemini 3.6-Flash", "OpenAI / Local Ollama", "Demo Sandbox"], index=0)
 
-    gemini_key = AUTO_GEMINI_KEY
-    if not gemini_key and "Gemini" in llm_choice:
-        gemini_key = st.text_input("Gemini API Key", type="password", help="Enter your Google Gemini API key.")
-    elif gemini_key and "Gemini" in llm_choice:
-        st.success(f"🔒 **Gemini Connected:** `••••••••{gemini_key[-5:]}`")
+    gemini_key_input = st.text_input(
+        "Gemini API Key",
+        value=st.session_state.get("custom_gemini_key", AUTO_GEMINI_KEY or ""),
+        type="password",
+        help="Get a 100% free API key instantly at https://aistudio.google.com",
+    )
+    if gemini_key_input:
+        st.session_state.custom_gemini_key = gemini_key_input.strip()
+
+    active_gemini_key = st.session_state.get("custom_gemini_key", AUTO_GEMINI_KEY)
+
+    # Test Key Button
+    if active_gemini_key and st.button("🧪 Test Gemini API Key", use_container_width=True):
+        try:
+            test_prov = GeminiLLMProvider(api_key=active_gemini_key)
+            reply = test_prov._call("Respond with 'OK'", "You are a test ping.")
+            st.success(f"🟢 Gemini API Live & Verified! (Model: 3.6-Flash)")
+        except Exception as e:
+            err_str = str(e)
+            if "leaked" in err_str.lower() or "403" in err_str:
+                st.error("⚠️ Key was flagged as leaked by Google. Please paste a fresh free key from aistudio.google.com")
+            else:
+                st.warning(f"Key notice: {err_str[:80]}")
 
     openai_key = get_secure_key("OPENAI_API_KEY")
     if "OpenAI" in llm_choice:
@@ -341,15 +361,15 @@ with st.sidebar:
             delete_project_draft(sel_p, OUTPUTS_DIR)
             st.rerun()
 
-current_llm = get_llm_provider("gemini" if "Gemini" in llm_choice else llm_choice, api_key=gemini_key or openai_key)
+current_llm = get_llm_provider("gemini" if "Gemini" in llm_choice else llm_choice, api_key=active_gemini_key or openai_key)
 
 # ---------------------------------------------------------
 # State Defaults
 # ---------------------------------------------------------
 if "niche" not in st.session_state:
-    st.session_state.niche = "Real Estate"
+    st.session_state.niche = "AI Coding"
 if "topic" not in st.session_state:
-    st.session_state.topic = "I Sent 500 Hand-Written Letters to Zombie Properties (The Shocking Results)"
+    st.session_state.topic = "The 7-minute AI coding workflow that replaces 4 hours of boilerplate"
 if "suggested_topics" not in st.session_state:
     st.session_state.suggested_topics = []
 if "council_proposals" not in st.session_state:
