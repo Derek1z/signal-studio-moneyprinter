@@ -6,6 +6,8 @@ import os
 import re
 import shutil
 import subprocess
+import urllib.request
+import zipfile
 from pathlib import Path
 from typing import Any, Callable
 
@@ -17,18 +19,55 @@ logger = logging.getLogger(__name__)
 
 ProgressCallback = Callable[[str, float], None]
 
+FFMPEG_WIN64_ZIP_URL = "https://github.com/vot/ffbinaries-prebuilt/releases/download/v4.4.1/ffmpeg-4.4.1-win-64.zip"
 
-def _get_ffmpeg_cmd() -> str | None:
-    """Find FFmpeg executable in PATH or via imageio_ffmpeg bundled binary."""
+
+def _ensure_ffmpeg(output_dir: Path | None = None) -> str | None:
+    """Find or automatically download static portable FFmpeg executable."""
+    # 1. Check system PATH
     sys_ffmpeg = shutil.which("ffmpeg")
     if sys_ffmpeg:
         return sys_ffmpeg
+
+    # 2. Check imageio_ffmpeg
     try:
         import imageio_ffmpeg  # type: ignore
 
         return imageio_ffmpeg.get_ffmpeg_exe()
     except Exception:
-        return None
+        pass
+
+    # 3. Check local studio bin
+    base_dir = output_dir or Path(__file__).parent.parent / "studio_outputs"
+    bin_dir = base_dir / "bin"
+    ffmpeg_exe = bin_dir / "ffmpeg.exe"
+    if ffmpeg_exe.exists() and ffmpeg_exe.stat().st_size > 1_000_000:
+        return str(ffmpeg_exe)
+
+    # 4. Auto-download static portable binary (zero user setup needed)
+    try:
+        bin_dir.mkdir(parents=True, exist_ok=True)
+        zip_path = bin_dir / "ffmpeg.zip"
+        req = urllib.request.Request(
+            FFMPEG_WIN64_ZIP_URL,
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+        )
+        with urllib.request.urlopen(req, timeout=30) as response, open(zip_path, "wb") as f:
+            while chunk := response.read(128 * 1024):
+                f.write(chunk)
+
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            zf.extract("ffmpeg.exe", str(bin_dir))
+
+        if zip_path.exists():
+            zip_path.unlink()
+
+        if ffmpeg_exe.exists():
+            return str(ffmpeg_exe)
+    except Exception as e:
+        logger.warning(f"Auto-download of portable FFmpeg failed: {e}")
+
+    return None
 
 
 def render_video_pipeline(
@@ -81,7 +120,7 @@ def render_video_pipeline(
 
     rendered = False
     render_note = ""
-    ffmpeg_bin = _get_ffmpeg_cmd()
+    ffmpeg_bin = _ensure_ffmpeg(output_dir)
 
     # Strategy A: FFmpeg Direct Assembly (Fastest & Most Reliable)
     if ffmpeg_bin:
@@ -100,7 +139,6 @@ def render_video_pipeline(
                         valid_clips.append(str(f))
 
             if valid_clips:
-                # Write concat file
                 concat_txt = output_dir / f"concat_{slug}.txt"
                 lines = [f"file '{Path(c).as_posix()}'" for c in valid_clips]
                 # Repeat clips if total duration is shorter than voice audio
@@ -108,7 +146,6 @@ def render_video_pipeline(
                     lines.extend([f"file '{Path(c).as_posix()}'" for c in valid_clips])
                 concat_txt.write_text("\n".join(lines), encoding="utf-8")
 
-                # Scale filter for aspect ratio
                 vf_filter = "scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720"
                 if "9:16" in aspect_ratio:
                     vf_filter = "scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280"
@@ -146,43 +183,6 @@ def render_video_pipeline(
         except Exception as exc:
             logger.warning(f"FFmpeg render attempt failed: {exc}")
 
-    # Strategy B: MoviePy Assembly
-    if not rendered:
-        try:
-            from moviepy.editor import AudioFileClip, VideoFileClip, concatenate_videoclips  # type: ignore
-
-            clips = []
-            for sc in matched_scenes:
-                local_p = sc.get("clip_local_path")
-                if local_p and os.path.exists(local_p) and os.path.getsize(local_p) > 10_000:
-                    try:
-                        v_clip = VideoFileClip(local_p).subclip(0, min(sc["duration"], 8))
-                        if "9:16" in aspect_ratio:
-                            v_clip = v_clip.resize(height=1280).crop(x_center=v_clip.w / 2, width=720)
-                        else:
-                            v_clip = v_clip.resize(width=1280).crop(y_center=v_clip.h / 2, height=720)
-                        clips.append(v_clip)
-                    except Exception as e:
-                        logger.warning(f"MoviePy clip read failed: {e}")
-
-            if clips:
-                final_video = concatenate_videoclips(clips, method="compose")
-                if mp3_path and os.path.exists(mp3_path) and os.path.getsize(mp3_path) > 1000:
-                    audio = AudioFileClip(mp3_path)
-                    final_video = final_video.set_audio(audio)
-                final_video.write_videofile(
-                    str(final_mp4),
-                    fps=24,
-                    codec="libx264",
-                    audio_codec="aac",
-                    logger=None,
-                )
-                if final_mp4.exists() and final_mp4.stat().st_size > 10_000:
-                    rendered = True
-                    render_note = "Rendered via MoviePy Engine"
-        except Exception as exc:
-            logger.warning(f"MoviePy render failed: {exc}")
-
     # Final Package Assembly
     report("✨ Complete! Video is ready for playback & download.", 1.0)
 
@@ -190,16 +190,5 @@ def render_video_pipeline(
     if rendered and final_mp4.exists():
         return True, f"🎉 MP4 Video Rendered Successfully! ({render_note})", final_mp4
 
-    # If video codecs are not installed yet, provide audio and instructional guidance
-    bundle_manifest = {
-        "status": "Voice Audio & Subtitles Ready",
-        "topic": topic,
-        "voice_audio": mp3_path,
-        "subtitles_srt": srt_path,
-        "scenes": matched_scenes,
-        "note": "Install 'imageio-ffmpeg' (pip install imageio-ffmpeg) to enable automatic in-app MP4 rendering.",
-    }
-    manifest_file = output_dir / f"{slug}_bundle.json"
-    manifest_file.write_text(json.dumps(bundle_manifest, indent=2), encoding="utf-8")
-
-    return True, "🎙️ Audio voiceover and subtitles compiled! (Run 'pip install imageio-ffmpeg' for automatic MP4 stitching)", Path(mp3_path) if mp3_path and os.path.exists(mp3_path) else None
+    # If MP4 not yet written, provide audio
+    return True, "🎙️ Audio voiceover and subtitles compiled!", Path(mp3_path) if mp3_path and os.path.exists(mp3_path) else None
