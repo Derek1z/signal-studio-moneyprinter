@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from studio.retention import split_into_sentences
+
 CAMERA_MOTIONS = [
     "Cinematic Slow Push In",
     "Dynamic Lateral Pan",
@@ -31,8 +33,8 @@ def segment_script_into_scenes(
     if not clean:
         return []
 
-    # Split into sentences
-    sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", clean) if s.strip()]
+    # Split into sentences with boundary preservation
+    sentences = split_into_sentences(clean)
     if not sentences:
         sentences = [clean]
 

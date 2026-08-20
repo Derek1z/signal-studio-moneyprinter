@@ -14,23 +14,62 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+_CACHED_ENCODER: str | None = None
+
 
 def _find_ffmpeg() -> str | None:
+    """Find FFmpeg binary across Linux, macOS, and Windows."""
     sys_ffmpeg = shutil.which("ffmpeg")
     if sys_ffmpeg:
         return sys_ffmpeg
-    search_paths = [
-        Path(__file__).parent.parent / "studio_outputs" / "bin" / "ffmpeg.exe",
-        Path(__file__).parent.parent / "studio_outputs" / "test_run" / "bin" / "ffmpeg.exe",
+
+    try:
+        import imageio_ffmpeg  # type: ignore
+
+        exe = imageio_ffmpeg.get_ffmpeg_exe()
+        if exe and os.path.exists(exe):
+            return exe
+    except Exception:
+        pass
+
+    exe_names = ["ffmpeg", "ffmpeg.exe"]
+    search_dirs = [
+        Path(__file__).parent.parent / "studio_outputs" / "bin",
+        Path(__file__).parent.parent / "studio_outputs" / "test_run" / "bin",
     ]
-    for p in search_paths:
-        if p.exists() and p.stat().st_size > 1_000_000:
-            return str(p.resolve())
+    for s_dir in search_dirs:
+        for name in exe_names:
+            candidate = s_dir / name
+            if candidate.exists() and candidate.stat().st_size > 100_000:
+                return str(candidate.resolve())
+
     root_outputs = Path(__file__).parent.parent / "studio_outputs"
-    for found in root_outputs.glob("**/ffmpeg.exe"):
-        if found.stat().st_size > 1_000_000:
-            return str(found.resolve())
+    for pattern in ["**/ffmpeg", "**/ffmpeg.exe"]:
+        for found in root_outputs.glob(pattern):
+            if found.is_file() and found.stat().st_size > 100_000:
+                return str(found.resolve())
+
     return None
+
+
+def _detect_video_encoder(ffmpeg_bin: str) -> str:
+    """Dynamically determine the best supported H.264/MPEG-4 video encoder."""
+    global _CACHED_ENCODER
+    if _CACHED_ENCODER:
+        return _CACHED_ENCODER
+
+    try:
+        res = subprocess.run([ffmpeg_bin, "-encoders"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=8)
+        output = res.stdout + res.stderr
+        for candidate in ["libx264", "libopenh264", "h264_nvenc", "h264_vaapi", "mpeg4"]:
+            if candidate in output:
+                _CACHED_ENCODER = candidate
+                return candidate
+    except Exception:
+        pass
+
+    _CACHED_ENCODER = "mpeg4"
+    return _CACHED_ENCODER
 
 
 def generate_themed_motion_clip(
@@ -55,39 +94,40 @@ def generate_themed_motion_clip(
 
     theme_key = visual_theme.lower()
     if "cyber" in theme_key or "code" in theme_key:
-        pattern = f"testsrc2=s={size}:r=24:d={duration_sec}"
-        vf = "hue=H=2*PI*t/12:s=0.9,curves=green,eq=contrast=1.3:brightness=-0.05"
+        pattern = f"testsrc2=s={size}:r=24"
+        vf = "hue=H=2*PI*t/12:s=0.9,eq=contrast=1.3:brightness=-0.05"
     elif "neon" in theme_key or "city" in theme_key:
-        pattern = f"mandelbrot=s={size}:r=24:d={duration_sec}"
+        pattern = f"mandelbrot=s={size}:r=24"
         vf = "hue=H=3*PI*t/8:s=1.0,eq=contrast=1.4:brightness=0.02"
     elif "space" in theme_key or "cosmos" in theme_key:
-        pattern = f"sierpinski=s={size}:r=24:d={duration_sec}"
+        pattern = f"sierpinski=s={size}:r=24"
         vf = "hue=H=PI*t/10:s=0.7,eq=contrast=1.2:brightness=-0.1"
     elif "crypto" in theme_key or "finance" in theme_key:
-        pattern = f"cellauto=s={size}:r=24:d={duration_sec}"
-        vf = "scale={size},hue=s=0.8,curves=strong_contrast"
+        pattern = f"cellauto=s={size}:r=24"
+        vf = f"scale={size},hue=s=0.8,eq=contrast=1.3"
     else:
         # Kinetic Motion Default
         patterns = [
-            f"mandelbrot=s={size}:r=24:d={duration_sec}",
-            f"testsrc2=s={size}:r=24:d={duration_sec}",
-            f"sierpinski=s={size}:r=24:d={duration_sec}",
+            f"mandelbrot=s={size}:r=24",
+            f"testsrc2=s={size}:r=24",
+            f"sierpinski=s={size}:r=24",
         ]
         pattern = patterns[(scene_idx - 1) % len(patterns)]
         vf = "hue=H=2*PI*t/10:s=0.85,eq=contrast=1.25"
 
+    encoder = _detect_video_encoder(ffmpeg_exe)
     cmd = [
         ffmpeg_exe, "-y",
         "-f", "lavfi",
         "-i", pattern,
         "-vf", vf,
-        "-c:v", "libx264",
+        "-c:v", encoder,
         "-pix_fmt", "yuv420p",
         "-t", str(duration_sec),
         str(output_path.resolve().as_posix()),
     ]
     try:
-        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, timeout=30)
         return output_path.exists() and output_path.stat().st_size > 1000
     except Exception as e:
         logger.warning(f"Themed B-roll generation failed: {e}")
@@ -190,7 +230,7 @@ def get_clips_for_scenes(
                     clip_file,
                     scene_idx=scene_num,
                     aspect_ratio=aspect_ratio,
-                    duration_sec=sc.get("duration", 5),
+                    duration_sec=int(sc.get("duration", 5)),
                     visual_theme=visual_theme,
                 )
 

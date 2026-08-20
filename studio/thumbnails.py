@@ -40,9 +40,12 @@ def generate_thumbnail_svg(
         lines.append(" ".join(curr))
     lines = lines[:4]
 
-    font_size = 64 if is_vertical else 84
-    line_height = font_size * 1.12
-    start_y = 480 if is_vertical else 340
+    # Dynamically scale font size if many lines or long text
+    max_line_chars = max([len(l) for l in lines], default=10)
+    base_font = 60 if is_vertical else (76 if max_line_chars > 16 or len(lines) >= 3 else 84)
+    font_size = base_font
+    line_height = font_size * 1.15
+    start_y = (480 if is_vertical else 330) if len(lines) <= 2 else (440 if is_vertical else 300)
 
     text_spans = []
     for idx, line in enumerate(lines):

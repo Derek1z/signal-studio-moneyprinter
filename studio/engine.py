@@ -14,9 +14,9 @@ from studio.ai_providers import BaseLLMProvider, DemoLLMProvider, get_llm_provid
 from studio.hooks import generate_hook_variations, replace_script_hook
 from studio.live_data import YouTubeTrendProvider, fetch_live_youtube_competitors, get_research_pack
 from studio.renderer import render_video_pipeline
-from studio.retention import analyze_retention
+from studio.retention import analyze_retention, split_into_sentences
 from studio.simulator import render_live_video_simulator
-from studio.social import generate_social_package, generate_youtube_chapters
+from studio.social import export_moneyprinter_payload, generate_social_package, generate_youtube_chapters
 from studio.stock_media import get_clips_for_scenes
 from studio.storage import delete_project_draft, list_saved_projects, load_project_draft, save_project_draft
 from studio.storyboard import compile_storyboard_to_broll_terms, segment_script_into_scenes

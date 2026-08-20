@@ -13,7 +13,7 @@ from studio.retention import get_tone_prompt_guidance
 logger = logging.getLogger(__name__)
 
 # Preferred Gemini models in fallback order
-GEMINI_MODELS = ["gemini-3.6-flash", "gemini-3.7-flash", "gemini-flash-latest"]
+GEMINI_MODELS = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.0-flash", "gemini-3.6-flash", "gemini-flash-latest"]
 
 
 def _clean_json_text(text: str) -> str:
@@ -74,6 +74,10 @@ class BaseLLMProvider(ABC):
 
     @abstractmethod
     def generate_packaging(self, topic: str, script: str) -> dict[str, Any]:
+        pass
+
+    @abstractmethod
+    def generate_hooks(self, topic: str, niche: str = "", clean_subj: str = "") -> list[dict[str, Any]]:
         pass
 
 
@@ -144,7 +148,8 @@ class DemoLLMProvider(BaseLLMProvider):
         competitors: list[dict[str, Any]] | None = None,
         citations: list[dict[str, Any]] | None = None,
     ) -> str:
-        if "hormozi" in tone_preset.lower():
+        preset_clean = tone_preset.lower()
+        if "hormozi" in preset_clean:
             return f"""{hook}
 
 Here is the brutal truth about {topic.lower()}: 90% of people fail because they automate the output instead of fixing the bottleneck.
@@ -159,6 +164,31 @@ Rule 3: Check every single claim before executing.
 The result? Production time dropped from 8 hours to 45 minutes.
 
 Speed gives you volume. Human checkpoints give you authority. If you want leverage, focus on the gate, not the button."""
+
+        elif "veritasium" in preset_clean:
+            return f"""{hook}
+
+If you search for advice on {topic.lower()}, you will find thousands of tutorials offering identical instructions. But when you examine how the top performers actually work, you discover a fascinating contradiction.
+
+To test this hypothesis, I conducted an experiment over the course of four weeks.
+
+The first variable was volume versus constraint. Standard intuition suggests that more speed equals more progress. But counter-intuitively, unrestricted generation introduces exponential error rates.
+
+The second variable was verification latency. By placing human review gates at the exact inflection points, total project completion time dropped by nearly seventy percent.
+
+The surprising conclusion is that leverage does not come from removing human judgment. It comes from directing that judgment where automated systems are fundamentally blind."""
+
+        elif "shorts" in preset_clean or "reels" in preset_clean:
+            return f"""{hook}
+
+Stop doing {topic.lower()} the hard way. Here is the 3-step cheat code.
+
+Step 1: Set your viewer constraint before touching any tool.
+Step 2: Generate 3 competing hooks and test the highest retention angle.
+Step 3: Verify every single claim before you hit render.
+
+Amateurs spend 8 hours. Pros do this in 45 minutes. Save this workflow and ship higher quality today."""
+
         else:
             return f"""{hook}
 
@@ -188,15 +218,66 @@ AI widens your options. Human judgment narrows them. That's the system that scal
             "broll_tags": ["creator desk", "focused typing", "analytics dashboard", "editing timeline", "coffee cup"],
         }
 
+    def generate_hooks(self, topic: str, niche: str = "", clean_subj: str = "") -> list[dict[str, Any]]:
+        subj = clean_subj or topic.lower()
+        niche_clean = niche.strip().lower() or "content creation"
+        return [
+            {
+                "archetype": "Negative Constraint",
+                "tag": "STOP DOING THIS",
+                "hook": f"Stop approaching {subj} the traditional way until you fix this one bottleneck.",
+                "hold_rate": 93,
+                "curiosity": 9,
+                "clarity": 10,
+                "rationale": "Loss aversion triggers instant attention within the first 1.5 seconds.",
+            },
+            {
+                "archetype": "Curiosity Gap",
+                "tag": "THE HIDDEN RULE",
+                "hook": f"There's a reason why the top 1% never handle {subj} the way tutorials teach.",
+                "hold_rate": 91,
+                "curiosity": 10,
+                "clarity": 9,
+                "rationale": "Creates an open loop that compels viewers to watch until the revelation.",
+            },
+            {
+                "archetype": "Bold Confession",
+                "tag": "EXPERIMENT PROOF",
+                "hook": f"I spent 30 days testing real {subj} workflows so you don't waste 100 hours.",
+                "hold_rate": 89,
+                "curiosity": 8,
+                "clarity": 10,
+                "rationale": "Establishes immediate personal authority and authentic proof.",
+            },
+            {
+                "archetype": "High Contrast",
+                "tag": "AMATEUR VS PRO",
+                "hook": f"Amateurs spend 8 hours on {subj}. Top creators do it in 45 minutes with this rule.",
+                "hold_rate": 95,
+                "curiosity": 9,
+                "clarity": 9,
+                "rationale": "Numbers-driven contrast creates an irresistible transformation promise.",
+            },
+            {
+                "archetype": "Urgency Trigger",
+                "tag": "PATTERN INTERRUPT",
+                "hook": f"If you're still relying on outdated {niche_clean} advice in 2026, pause and watch this.",
+                "hold_rate": 88,
+                "curiosity": 8,
+                "clarity": 9,
+                "rationale": "Time-sensitive pattern interrupt triggers Fear Of Missing Out (FOMO).",
+            },
+        ]
+
 
 class GeminiLLMProvider(BaseLLMProvider):
     """Google Gemini API Provider using direct REST requests with multi-model fallback."""
 
     BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
 
-    def __init__(self, api_key: str, model_name: str = "gemini-3.6-flash"):
+    def __init__(self, api_key: str, model_name: str = "gemini-2.5-flash"):
         self.api_key = api_key.strip()
-        self.model_name = model_name.strip() or "gemini-3.6-flash"
+        self.model_name = model_name.strip() or "gemini-2.5-flash"
 
     @property
     def provider_name(self) -> str:
@@ -381,9 +462,80 @@ Return ONLY a JSON object:
             logger.warning(f"Gemini packaging fallback: {e}")
         return DemoLLMProvider().generate_packaging(topic, script)
 
+    def generate_hooks(self, topic: str, niche: str = "", clean_subj: str = "") -> list[dict[str, Any]]:
+        clean_s = clean_subj or topic.lower()
+        niche_clean = niche.strip().lower() or "content creation"
+        prompt = f"""Generate 5 high-converting, psychological YouTube opening hooks specifically for this video topic:
+Topic Title: "{topic}"
+Core Subject: "{clean_s}"
+Niche: "{niche_clean}"
+
+MANDATE: Every hook must be a single, natural, complete spoken English sentence under 16 words.
+Do NOT just paste the raw title inside quotes. Write creative, punchy spoken lines.
+
+Return ONLY a valid JSON array of 5 objects:
+[
+  {{
+    "archetype": "Negative Constraint",
+    "tag": "STOP DOING THIS",
+    "hook": "Stop approaching {clean_s} the traditional way until you fix this one bottleneck.",
+    "hold_rate": 93,
+    "curiosity": 9,
+    "clarity": 10,
+    "rationale": "Loss aversion triggers instant focus"
+  }},
+  {{
+    "archetype": "Curiosity Gap",
+    "tag": "THE HIDDEN RULE",
+    "hook": "There is a reason the top 1% never handle {clean_s} like standard tutorials teach.",
+    "hold_rate": 91,
+    "curiosity": 10,
+    "clarity": 9,
+    "rationale": "Creates open loop"
+  }},
+  {{
+    "archetype": "Bold Confession",
+    "tag": "EXPERIMENT PROOF",
+    "hook": "I tracked 30 days of real {clean_s} experiments so you don't waste 100 hours.",
+    "hold_rate": 89,
+    "curiosity": 8,
+    "clarity": 10,
+    "rationale": "Authentic personal proof"
+  }},
+  {{
+    "archetype": "High Contrast",
+    "tag": "AMATEUR VS PRO",
+    "hook": "Amateurs spend 8 hours on {clean_s}. Top creators finish in 45 minutes with this rule.",
+    "hold_rate": 95,
+    "curiosity": 9,
+    "clarity": 9,
+    "rationale": "Extreme numbers contrast"
+  }},
+  {{
+    "archetype": "Urgency Trigger",
+    "tag": "PATTERN INTERRUPT",
+    "hook": "If you are still relying on outdated {niche_clean} advice in 2026, pause and watch this.",
+    "hold_rate": 88,
+    "curiosity": 8,
+    "clarity": 9,
+    "rationale": "FOMO trigger"
+  }}
+]"""
+        try:
+            raw = self._call(prompt, "You are a master YouTube retention scientist and viral copywriter.")
+            clean = _clean_json_text(raw)
+            data = json.loads(clean)
+            if isinstance(data, dict) and "hooks" in data:
+                data = data["hooks"]
+            if isinstance(data, list) and len(data) >= 3:
+                return data[:5]
+        except Exception as e:
+            logger.warning(f"Gemini generate_hooks fallback: {e}")
+        return DemoLLMProvider().generate_hooks(topic, niche, clean_subj)
+
 
 class OpenAILLMProvider(BaseLLMProvider):
-    """OpenAI API Provider."""
+    """OpenAI API Provider supporting GPT-4o, GPT-4o-mini, and local Ollama/OpenRouter endpoints."""
 
     def __init__(
         self,
@@ -401,7 +553,7 @@ class OpenAILLMProvider(BaseLLMProvider):
 
     @property
     def configured(self) -> bool:
-        return bool(self.api_key or "localhost" in self.base_url)
+        return bool(self.api_key or "localhost" in self.base_url or "127.0.0.1" in self.base_url)
 
     def _call(self, prompt: str, system_instruction: str = "") -> str:
         url = f"{self.base_url}/chat/completions"
@@ -461,6 +613,39 @@ Return ONLY raw JSON array of 3 objects with keys 'topic', 'score', 'signal', 'a
         competitors: list[dict[str, Any]] | None = None,
         citations: list[dict[str, Any]] | None = None,
     ) -> tuple[list[dict[str, str]], int, str]:
+        comp_text = ""
+        if competitors:
+            comp_text = "\nRanking Competitor Videos:\n" + "\n".join(
+                [f"- \"{c.get('title')}\" ({c.get('channel')} · {c.get('views')})" for c in competitors[:3]]
+            )
+
+        prompt = f"""Topic: {topic}
+Niche: {niche}
+Audience: {audience}
+{comp_text}
+
+Form a 3-advisor editorial council with these personas:
+1. Story Architect (Focus: emotional transformation, narrative arc, personal experiment)
+2. Audience Advocate (Focus: immediate utility, friction reduction, 3-step actionable frameworks)
+3. Skeptical Editor (Focus: myth busting, contrarian truth, boundary conditions)
+
+Return ONLY a JSON object with this exact schema:
+{{
+  "proposals": [
+    {{"advisor": "Story Architect", "angle": "Short punchy angle title", "hook": "First 5-second spoken hook line", "thesis": "Core editorial premise"}},
+    {{"advisor": "Audience Advocate", "angle": "Short punchy angle title", "hook": "First 5-second spoken hook line", "thesis": "Core editorial premise"}},
+    {{"advisor": "Skeptical Editor", "angle": "Short punchy angle title", "hook": "First 5-second spoken hook line", "thesis": "Core editorial premise"}}
+  ],
+  "winner": 0,
+  "judge_reasoning": "Explanation for why the winner was chosen"
+}}"""
+        try:
+            raw = self._call(prompt, "You are an executive YouTube editorial council.")
+            parsed = json.loads(_clean_json_text(raw))
+            if "proposals" in parsed and isinstance(parsed["proposals"], list):
+                return parsed["proposals"], int(parsed.get("winner", 0)), str(parsed.get("judge_reasoning", ""))
+        except Exception as e:
+            logger.warning(f"OpenAI run_council fallback: {e}")
         return DemoLLMProvider().run_council(topic, niche, audience, competitors, citations)
 
     def generate_script(
@@ -476,10 +661,73 @@ Return ONLY raw JSON array of 3 objects with keys 'topic', 'score', 'signal', 'a
         competitors: list[dict[str, Any]] | None = None,
         citations: list[dict[str, Any]] | None = None,
     ) -> str:
+        target_words = int((duration_sec / 60) * 140)
+        tone_guidance = get_tone_prompt_guidance(tone_preset)
+        prompt = f"""Write a high-retention YouTube video narration script.
+Topic: {topic}
+Selected Angle: {angle}
+Thesis: {thesis}
+Mandatory Hook Line (first sentence): "{hook}"
+Target Audience: {audience}
+Target Length: Approx {target_words} words (around {duration_sec} seconds spoken).
+
+Tone Guidance:
+{tone_guidance}
+
+Return ONLY the narration text (no stage directions, no [music], no timestamps)."""
+        try:
+            script = self._call(prompt, "You are an award-winning YouTube scriptwriter.")
+            if script and len(script.split()) > 30:
+                return script
+        except Exception as e:
+            logger.warning(f"OpenAI generate_script fallback: {e}")
         return DemoLLMProvider().generate_script(topic, angle, thesis, hook, niche, audience, duration_sec, tone_preset, competitors, citations)
 
     def generate_packaging(self, topic: str, script: str) -> dict[str, Any]:
+        prompt = f"""For this YouTube topic and script, produce packaging concepts:
+Topic: {topic}
+Script excerpt: {script[:400]}
+
+Return ONLY a JSON object:
+{{
+  "titles": [
+    "High CTR Title 1",
+    "High CTR Title 2",
+    "High CTR Title 3"
+  ],
+  "thumbnail_text": "3-5 WORD PUNCHY ALL-CAPS TEXT",
+  "thumbnail_visual": "Visual layout and subject description for thumbnail artist",
+  "broll_tags": ["tag1", "tag2", "tag3", "tag4", "tag5"]
+}}"""
+        try:
+            raw = self._call(prompt, "You are a master YouTube packaging and thumbnail designer.")
+            parsed = json.loads(_clean_json_text(raw))
+            if "titles" in parsed and "thumbnail_text" in parsed:
+                return parsed
+        except Exception as e:
+            logger.warning(f"OpenAI generate_packaging fallback: {e}")
         return DemoLLMProvider().generate_packaging(topic, script)
+
+    def generate_hooks(self, topic: str, niche: str = "", clean_subj: str = "") -> list[dict[str, Any]]:
+        clean_s = clean_subj or topic.lower()
+        niche_clean = niche.strip().lower() or "content creation"
+        prompt = f"""Generate 5 high-converting, psychological YouTube opening hooks for:
+Topic Title: "{topic}"
+Subject: "{clean_s}"
+Niche: "{niche_clean}"
+
+Return ONLY a valid JSON array of 5 objects with keys: archetype, tag, hook, hold_rate, curiosity, clarity, rationale."""
+        try:
+            raw = self._call(prompt, "You are a YouTube retention scientist.")
+            clean = _clean_json_text(raw)
+            data = json.loads(clean)
+            if isinstance(data, dict) and "hooks" in data:
+                data = data["hooks"]
+            if isinstance(data, list) and len(data) >= 3:
+                return data[:5]
+        except Exception as e:
+            logger.warning(f"OpenAI generate_hooks fallback: {e}")
+        return DemoLLMProvider().generate_hooks(topic, niche, clean_subj)
 
 
 def get_llm_provider(
@@ -492,8 +740,8 @@ def get_llm_provider(
     provider_type_clean = (provider_type or "demo").lower()
     if "gemini" in provider_type_clean or (api_key and "AIza" in api_key):
         if api_key.strip():
-            return GeminiLLMProvider(api_key=api_key, model_name=model_name or "gemini-3.6-flash")
-    elif "openai" in provider_type_clean:
-        if api_key.strip():
+            return GeminiLLMProvider(api_key=api_key, model_name=model_name or "gemini-2.5-flash")
+    elif "openai" in provider_type_clean or base_url.strip():
+        if api_key.strip() or base_url.strip():
             return OpenAILLMProvider(api_key=api_key, model_name=model_name or "gpt-4o-mini", base_url=base_url)
     return DemoLLMProvider()

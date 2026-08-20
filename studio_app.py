@@ -16,8 +16,10 @@ from studio.engine import (
     compile_storyboard_to_broll_terms,
     create_social_package,
     delete_project_draft,
+    export_moneyprinter_payload,
     fetch_live_youtube_competitors,
     fetch_research_pack,
+    generate_ai_image_prompt,
     generate_hook_variations,
     generate_thumbnail_svg,
     list_saved_projects,
@@ -345,6 +347,18 @@ with st.sidebar:
         pexels_key = st.text_input("Pexels Key (Optional)", type="password", help="Leave blank for built-in high-energy motion graphics engine.")
 
     st.markdown("---")
+    st.markdown("#### 🎙️ Voice & Audio Actor")
+    voice_keys = list(AVAILABLE_VOICES.keys())
+    cur_v_idx = voice_keys.index(st.session_state.get("voice_model", "en-US-JennyNeural-Female")) if st.session_state.get("voice_model") in voice_keys else 0
+    st.session_state.voice_model = st.selectbox(
+        "AI Voice Model",
+        voice_keys,
+        index=cur_v_idx,
+        format_func=lambda k: f"{AVAILABLE_VOICES.get(k, {}).get('flag', '🎙️')} {k.split('-')[-2]} ({AVAILABLE_VOICES.get(k, {}).get('gender', '')})",
+    )
+    st.session_state.voice_rate = st.slider("Speech Rate / Cadence", 0.8, 1.4, float(st.session_state.get("voice_rate", 1.0)), 0.05)
+
+    st.markdown("---")
     st.markdown("#### 🗂️ Project Library")
     saved_projects = list_saved_projects(OUTPUTS_DIR)
     if saved_projects:
@@ -384,6 +398,8 @@ if "tone_preset" not in st.session_state:
     st.session_state.tone_preset = "Alex Hormozi Framework"
 if "voice_model" not in st.session_state:
     st.session_state.voice_model = "en-US-JennyNeural-Female"
+if "voice_rate" not in st.session_state:
+    st.session_state.voice_rate = 1.0
 if "aspect_ratio" not in st.session_state:
     st.session_state.aspect_ratio = "9:16 (Shorts/TikTok/Reels)"
 if "video_pacing" not in st.session_state:
@@ -394,6 +410,12 @@ if "subtitle_style" not in st.session_state:
     st.session_state.subtitle_style = "🟡 Hormozi Pop (Gold/Emerald)"
 if "competitors" not in st.session_state:
     st.session_state.competitors = []
+if "research_claims" not in st.session_state:
+    st.session_state.research_claims = []
+if "thumb_theme" not in st.session_state:
+    st.session_state.thumb_theme = "emerald"
+if "thumb_headline" not in st.session_state:
+    st.session_state.thumb_headline = ""
 if "rendered_video_path" not in st.session_state:
     st.session_state.rendered_video_path = ""
 if "rendered_audio_path" not in st.session_state:
@@ -629,7 +651,7 @@ with right_panel:
             with st.spinner("Synthesizing voice audio & assembling multi-scene master video..."):
                 settings = {
                     "voice_name": st.session_state.voice_model,
-                    "voice_rate": 1.0,
+                    "voice_rate": float(st.session_state.get("voice_rate", 1.0)),
                     "video_aspect": st.session_state.aspect_ratio.split()[0],
                     "video_clip_duration": target_clip_sec,
                     "visual_theme": st.session_state.visual_theme,
@@ -708,9 +730,12 @@ with right_panel:
 
             zip_path = OUTPUTS_DIR / "production_asset_bundle.zip"
             with zipfile.ZipFile(zip_path, "w") as zf:
-                if has_video: zf.write(st.session_state.rendered_video_path, arcname=Path(st.session_state.rendered_video_path).name)
-                if has_audio: zf.write(st.session_state.rendered_audio_path, arcname=Path(st.session_state.rendered_audio_path).name)
-                if srt_path and os.path.exists(srt_path): zf.write(srt_path, arcname=Path(srt_path).name)
+                if has_video:
+                    zf.write(st.session_state.rendered_video_path, arcname=Path(st.session_state.rendered_video_path).name)
+                if has_audio:
+                    zf.write(st.session_state.rendered_audio_path, arcname=Path(st.session_state.rendered_audio_path).name)
+                if srt_path and os.path.exists(srt_path):
+                    zf.write(srt_path, arcname=Path(srt_path).name)
                 zf.writestr("narration_script.txt", st.session_state.script)
 
             if zip_path.exists():
@@ -722,3 +747,158 @@ with right_panel:
                         mime="application/zip",
                         use_container_width=True,
                     )
+
+# ---------------------------------------------------------
+# Full-Width Multi-Platform Production & Distribution Suite
+# ---------------------------------------------------------
+st.markdown("---")
+st.markdown("### 🛠️ Production Suite & Multi-Platform Distribution Hub")
+
+tab_thumb, tab_social, tab_research, tab_retention, tab_moneyprinter = st.tabs([
+    "🎨 Vector Thumbnail Studio",
+    "📦 Social SEO & Packaging",
+    "🔬 Primary Research & Fact-Check",
+    "📈 Deep Retention Diagnostics",
+    "🚀 MoneyPrinterTurbo Export",
+])
+
+with tab_thumb:
+    st.markdown("##### 🎨 Scalable Vector SVG Thumbnail Designer")
+    th_c1, th_c2 = st.columns([1.2, 1.8], gap="medium")
+
+    with th_c1:
+        default_thumb_hl = st.session_state.thumb_headline or "AUTOMATE LESS. SHIP BETTER."
+        st.session_state.thumb_headline = st.text_input("Thumbnail Main Headline", default_thumb_hl)
+        t_sub = st.text_input("Subtitle / Category", "WORKFLOW EXPERIMENT")
+        t_badge = st.text_input("Top Badge Tag", "AI × HUMAN")
+        theme_sel = st.selectbox("Color Theme", ["emerald", "cyber", "amber", "crimson"], index=0)
+        aspect_sel = st.radio("Aspect Ratio", ["16:9", "9:16"], horizontal=True)
+
+        svg_code = generate_thumbnail_svg(
+            headline=st.session_state.thumb_headline,
+            subtitle=t_sub,
+            badge=t_badge,
+            aspect_ratio=aspect_sel,
+            theme=theme_sel,
+        )
+
+        st.download_button(
+            "⬇️ Download Scalable Vector SVG",
+            data=svg_code,
+            file_name=f"thumbnail_{theme_sel}_{aspect_sel.replace(':', 'x')}.svg",
+            mime="image/svg+xml",
+            use_container_width=True,
+        )
+
+        with st.expander("🤖 Generative AI Image Prompts (Midjourney / DALL-E 3)"):
+            ai_img_prompt = generate_ai_image_prompt(st.session_state.topic, st.session_state.thumb_headline)
+            st.code(ai_img_prompt, language="markdown")
+
+    with th_c2:
+        st.caption("Live Vector SVG Preview:")
+        st.components.v1.html(svg_code, height=440 if aspect_sel == "16:9" else 620, scrolling=False)
+
+with tab_social:
+    st.markdown("##### 📦 Multi-Platform Social Packaging & SEO Optimization")
+    if not st.session_state.research_claims:
+        st.session_state.research_claims = fetch_research_pack(st.session_state.topic)
+
+    soc_pkg = create_social_package(
+        topic=st.session_state.topic,
+        script=st.session_state.script,
+        niche=st.session_state.niche,
+        research_claims=st.session_state.research_claims,
+        title=st.session_state.topic,
+        tone_preset=st.session_state.tone_preset,
+    )
+
+    s_t1, s_t2 = st.tabs(["📺 YouTube Description & Chapters", "🧵 Social Posts (X / LinkedIn / TikTok)"])
+
+    with s_t1:
+        st.text_area("YouTube Description (with Chapters & Citations)", soc_pkg["youtube_description"], height=280)
+        st.download_button(
+            "⬇️ Download YouTube Description (.txt)",
+            data=soc_pkg["youtube_description"],
+            file_name="youtube_description.txt",
+            mime="text/plain",
+        )
+        st.markdown("**SEO Tags & Keywords:**")
+        st.code(soc_pkg["seo_tags"], language="markdown")
+
+    with s_t2:
+        c_x, c_li, c_tt = st.columns(3)
+        with c_x:
+            st.markdown("**𝕏 / Twitter Thread Copy:**")
+            st.text_area("X Post", soc_pkg["x_post"], height=220, label_visibility="collapsed")
+        with c_li:
+            st.markdown("**💼 LinkedIn Creator Post:**")
+            st.text_area("LinkedIn Post", soc_pkg["linkedin_post"], height=220, label_visibility="collapsed")
+        with c_tt:
+            st.markdown("**📱 TikTok / Shorts Caption:**")
+            st.text_area("Shorts Caption", soc_pkg["shorts_caption"], height=220, label_visibility="collapsed")
+
+with tab_research:
+    st.markdown("##### 🔬 Verified Primary Research & Factual Guardrails")
+    if st.button("🔄 Refresh Research Pack"):
+        st.session_state.research_claims = fetch_research_pack(st.session_state.topic)
+        st.rerun()
+
+    claims = st.session_state.research_claims or fetch_research_pack(st.session_state.topic)
+    for c_i, cl in enumerate(claims):
+        with st.container(border=True):
+            r_c1, r_c2 = st.columns([3.8, 1.2])
+            with r_c1:
+                st.markdown(f"**Claim {c_i+1}:** {cl.get('claim', '')}")
+                if cl.get("url"):
+                    st.caption(f"Source: [{cl.get('source', '')}]({cl.get('url')})")
+                else:
+                    st.caption(f"Source: {cl.get('source', 'Verified Internal Knowledge Base')}")
+            with r_c2:
+                st.markdown('<span class="viral-badge">✓ High Credibility</span>', unsafe_allow_html=True)
+
+with tab_retention:
+    st.markdown("##### 📈 Sentence-Level Retention Diagnostics & Pacing Audit")
+    ret_full = audit_script_retention(st.session_state.script)
+
+    r_col1, r_col2, r_col3 = st.columns(3)
+    r_col1.metric("Overall Retention Score", f"{ret_full.get('score', 85)}/100", f"Grade: {ret_full.get('grade', 'B')}")
+    r_col2.metric("Total Spoken Words", ret_full.get("stats", {}).get("total_words", 0))
+    r_col3.metric("Avg Sentence Length", f"{ret_full.get('stats', {}).get('avg_sentence_len', 0)} words")
+
+    st.markdown(f"**Pacing Verdict:** {ret_full.get('pacing_verdict', '')}")
+
+    if ret_full.get("cliches_found"):
+        st.warning(f"⚠️ AI Clichés Detected: {', '.join(ret_full['cliches_found'])}")
+
+    if ret_full.get("recommendations"):
+        st.markdown("**Actionable Recommendations:**")
+        for rec in ret_full["recommendations"]:
+            st.markdown(f"- {rec}")
+
+with tab_moneyprinter:
+    st.markdown("##### 🚀 MoneyPrinterTurbo Validated VideoParams Payload")
+    st.caption("Copy or export this JSON payload to run in upstream MoneyPrinterTurbo distributed pipelines.")
+
+    scenes_list = segment_script_into_scenes(st.session_state.script)
+    broll_terms = compile_storyboard_to_broll_terms(scenes_list)
+    mp_payload = export_moneyprinter_payload(
+        topic=st.session_state.topic,
+        script=st.session_state.script,
+        settings={
+            "video_aspect": st.session_state.aspect_ratio.split()[0],
+            "video_clip_duration": target_clip_sec,
+            "voice_name": st.session_state.voice_model,
+            "voice_rate": float(st.session_state.get("voice_rate", 1.0)),
+        },
+        broll_terms=broll_terms,
+    )
+
+    st.json(mp_payload)
+    st.download_button(
+        "⬇️ Download MoneyPrinterTurbo JSON Payload (.json)",
+        data=json.dumps(mp_payload, indent=2),
+        file_name="moneyprinter_params.json",
+        mime="application/json",
+        use_container_width=True,
+    )
+

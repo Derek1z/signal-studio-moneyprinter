@@ -25,9 +25,25 @@ class SentenceAudit:
     risk_level: str  # 'green', 'yellow', 'red'
 
 
+def split_into_sentences(text: str) -> list[str]:
+    """Split text into sentences while protecting decimals, abbreviations, and URLs."""
+    clean = text.strip()
+    if not clean:
+        return []
+    # Protect decimal numbers like 3.5 or 4.0
+    clean = re.sub(r"(\d)\.(\d)", r"\1<DECIMAL_DOT>\2", clean)
+    # Protect common abbreviations
+    for abbrev in [r"\be\.g\.", r"\bi\.e\.", r"\bvs\.", r"\bdr\.", r"\bmr\.", r"\bmrs\.", r"\binc\.", r"\betc\."]:
+        clean = re.sub(abbrev, lambda m: m.group(0).replace(".", "<ABBREV_DOT>"), clean, flags=re.IGNORECASE)
+    # Split on sentence boundaries
+    raw_sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", clean) if s.strip()]
+    # Restore protected dots
+    return [s.replace("<DECIMAL_DOT>", ".").replace("<ABBREV_DOT>", ".") for s in raw_sentences]
+
+
 def analyze_retention(script: str) -> dict[str, Any]:
     """Perform sentence-level pacing, retention drop-off, and cliché audit."""
-    raw_sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", script.strip()) if s.strip()]
+    raw_sentences = split_into_sentences(script)
     if not raw_sentences:
         return {
             "score": 80,
@@ -105,10 +121,18 @@ def analyze_retention(script: str) -> dict[str, Any]:
         recommendations.append("Pacing and sentence flow are crisp with high retention potential.")
 
     avg_len = round(total_words / max(1, len(raw_sentences)), 1)
+    pacing_verdict = (
+        "Crisp, rapid-fire velocity with excellent hold potential."
+        if final_score >= 90
+        else "Solid pacing with minor friction points to tighten."
+        if final_score >= 75
+        else "High risk of drop-off due to long sentences or generic buzzwords."
+    )
 
     return {
         "score": final_score,
         "grade": grade,
+        "pacing_verdict": pacing_verdict,
         "cliches_found": cliches_found,
         "sentences": [
             {
@@ -126,6 +150,7 @@ def analyze_retention(script: str) -> dict[str, Any]:
         },
         "recommendations": recommendations,
     }
+
 
 
 def get_tone_prompt_guidance(tone_preset: str) -> str:

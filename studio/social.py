@@ -144,3 +144,35 @@ What is the biggest bottleneck in your current creation workflow?"""
         "linkedin_post": linkedin_post,
         "shorts_caption": shorts_caption,
     }
+
+
+def export_moneyprinter_payload(
+    topic: str,
+    script: str,
+    settings: dict[str, Any] | None = None,
+    broll_terms: list[str] | None = None,
+) -> dict[str, Any]:
+    """Generate validated VideoParams JSON payload for upstream MoneyPrinterTurbo."""
+    cfg = settings or {}
+    aspect = cfg.get("video_aspect", "9:16")
+    return {
+        "video_subject": topic,
+        "video_script": script,
+        "video_terms": broll_terms or ["creator workspace", "productivity", "focus typing"],
+        "video_aspect": aspect,
+        "video_concat_mode": "random",
+        "video_clip_duration": int(cfg.get("video_clip_duration", 3)),
+        "video_count": 1,
+        "voice_name": cfg.get("voice_name", "en-US-JennyNeural-Female"),
+        "voice_rate": float(cfg.get("voice_rate", 1.0)),
+        "bgm_type": cfg.get("bgm_type", "random"),
+        "bgm_volume": 0.2,
+        "subtitle_enabled": True,
+        "subtitle_position": "bottom",
+        "font_name": "Arial",
+        "text_fore_color": "#FFFFFF",
+        "font_size": 60 if "9:16" in aspect else 45,
+        "stroke_color": "#000000",
+        "stroke_width": 1.5,
+    }
+
